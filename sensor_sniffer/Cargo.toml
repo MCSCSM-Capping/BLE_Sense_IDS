@@ -4,4 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# tshark should be installed on your system
+ctrlc = "3.2"
+# tshark should be installed on your system and in path
