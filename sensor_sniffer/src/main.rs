@@ -11,8 +11,11 @@ use ctrlc;
 
 const OUTPUT_DIR: &str = "Sniffed_Data";  // Change this to your desired directory
 const MAX_SIZE_KB: u64 = 200;  // Maximum size of pcapng file before we send it 
-const FILE_ROTATION_SIZE: usize = 5; // Maxiumum number ring buffer files, when 6th file would be created, the oldest file is overwritten.
-const SNIFF_INTERFACE: &str = "Ethernet"; // interface for tshark to sniff on... eth for testing for now
+const FILE_ROTATION_SIZE: usize = 5; // Maximum number ring buffer files, when 6th file would be created, the oldest file is overwritten.
+const SNIFF_INTERFACE: &str = "Com3-4.4"; // interface for tshark to sniff on... eth for testing for now
+const KERNEL_BUFFER_SIZE_MB: u32 = 10; // size of kernel buffer for tshark to temp store data
+const SNAPLEN: u32 = 60;  // Capture the first 60 bytes of each BLE packet aka the headers
+const UPDATE_INTERVAL_MS: u32 = 10;  // Set the update interval to 50 ms for time between packets
 
 fn start_sniff() -> Child {
     // start tshark with ring buffer settings
@@ -26,6 +29,9 @@ fn start_sniff() -> Child {
             "-i", SNIFF_INTERFACE,
             "-b", &format!("filesize:{}", MAX_SIZE_KB),
             "-b", &format!("files:{}", FILE_ROTATION_SIZE),
+            "-B", &format!("{}", KERNEL_BUFFER_SIZE_MB),
+            "-s", &format!("{}", SNAPLEN),
+            "--update-interval", &format!("{}", UPDATE_INTERVAL_MS),
             "-w", &format!("{}/capture_ringbuffer.pcapng", OUTPUT_DIR)
         ])
         .spawn()
