@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 ctrlc = "3.2"
-# tshark should be installed on your system and in path
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12.7", features = ["blocking", "json"] }
