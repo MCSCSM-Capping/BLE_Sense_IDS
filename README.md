@@ -9,7 +9,7 @@ Capping Project for 2024
     - depending on your IDE you may have to set the python interpreter to use the venv python executable
         - in vscode you can press `C-p` (control p) and search `python interpreter` and change it appropiately
 - install python dependencies from requirements.txt
-    - `pip install -r pip install -r requirement.txt`
+    - `pip install -r requirement.txt`
 - for the next steps you'll need to use the `manage.py` file the example commands assume you're in the `/ble_captures` folder
 - set up the database
     - `python manage.py migrate`
