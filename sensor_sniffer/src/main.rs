@@ -18,6 +18,10 @@ const SNAPLEN: u32 = 60;  // Capture the first 60 bytes of each BLE packet aka t
 const UPDATE_INTERVAL_MS: u32 = 10;  // Set the update interval to 50 ms for time between packets
 
 fn start_sniff() -> Child {
+
+    // NRF command
+    // nrfutil ble-sniffer sniff --port "COM3" --output-pcap-file "Sniffed_Data/capture.pcapng" --log-output=stdout --json-pretty 
+
     // start tshark with ring buffer settings
     let sniffed_data_dir = Path::new(OUTPUT_DIR);
     if !sniffed_data_dir.exists() {
@@ -32,6 +36,7 @@ fn start_sniff() -> Child {
             "-B", &format!("{}", KERNEL_BUFFER_SIZE_MB),
             "-s", &format!("{}", SNAPLEN),
             "--update-interval", &format!("{}", UPDATE_INTERVAL_MS),
+            // "-V", // for seeing packets as they come in in CLI
             "-w", &format!("{}/capture_ringbuffer.pcapng", OUTPUT_DIR)
         ])
         .spawn()
@@ -49,7 +54,7 @@ fn reached_max_size(path: &Path) -> bool {
     match fs::metadata(path) {
         Ok(metadata) => {
             let file_size = metadata.len();
-            println!("File: {:?}, Size: {} Kbytes", path.file_name().unwrap(), file_size/1024);
+            //println!("File: {:?}, Size: {} Kbytes", path.file_name().unwrap(), file_size/1024);
             (file_size/1024) >= (MAX_SIZE_KB - 5) // files don't reach full size, they stop early
         },
         Err(_) => false,
@@ -93,13 +98,13 @@ fn monitor_files(running: Arc<AtomicBool>) {
             let path = file.path();
            
             let file_name = path.file_name().unwrap().to_str().unwrap();
-            println!("Checking file: {}", file_name);
-            println!("size?: {}", reached_max_size(&path));
-            println!("in queue? {}", sent_files.contains(&path));
+            // println!("Checking file: {}", file_name);
+            // println!("size?: {}", reached_max_size(&path));
+            // println!("in queue? {}", sent_files.contains(&path));
 
             // If the file is a pcapng file and has reached the max size, send it
             if is_pcapng_file(&path) && reached_max_size(&path) && !sent_files.contains(&path) {
-                println!("Conditions Met");
+                //println!("Conditions Met");
                 send_file(&client, &api_url, &path);
                 
                 // Manage the queue
@@ -112,7 +117,7 @@ fn monitor_files(running: Arc<AtomicBool>) {
             
         }
 
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(Duration::from_secs(5));
     }
 }
 
