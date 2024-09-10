@@ -1,70 +1,43 @@
-use std::process::{Command, Child};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::process::{Command, Child};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::thread;
-use std::collections::VecDeque;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 use reqwest::blocking::Client;
-use std::time::Duration;
-use ctrlc;
 
-const OUTPUT_DIR: &str = "Sniffed_Data";  // Change this to your desired directory
-const MAX_SIZE_KB: u64 = 200;  // Maximum size of pcapng file before we send it 
-const FILE_ROTATION_SIZE: usize = 5; // Maximum number ring buffer files, when 6th file would be created, the oldest file is overwritten.
-const SNIFF_INTERFACE: &str = "Com3-4.4"; // interface for tshark to sniff on... eth for testing for now
-const KERNEL_BUFFER_SIZE_MB: u32 = 10; // size of kernel buffer for tshark to temp store data
-const SNAPLEN: u32 = 60;  // Capture the first 60 bytes of each BLE packet aka the headers
-const UPDATE_INTERVAL_MS: u32 = 10;  // Set the update interval to 50 ms for time between packets
+const CAPTURE_FILE: &str = "capture.pcapng";
+const OUTPUT_DIR: &str = "Sniffed_Data";
+const MAX_SIZE: u64 = 500 * 1024; // 500KB
+const MAX_FILE_RETENTION: usize = 10;
 
-fn start_sniff() -> Child {
-
-    // NRF command
-    // nrfutil ble-sniffer sniff --port "COM3" --output-pcap-file "Sniffed_Data/capture.pcapng" --log-output=stdout --json-pretty 
-
-    // start tshark with ring buffer settings
-    let sniffed_data_dir = Path::new(OUTPUT_DIR);
-    if !sniffed_data_dir.exists() {
-        fs::create_dir(sniffed_data_dir).expect("Failed to create Sniffed_Data directory");
-    }
-    
-    let tshark = Command::new("tshark")
+// Starts the NRFutil ble-sniffer tool for capturing BLE packets
+fn start_nrf_sniffer(interface: &String) -> Child {
+    let sniffer = Command::new("nrfutil")
         .args(&[
-            "-i", SNIFF_INTERFACE,
-            "-b", &format!("filesize:{}", MAX_SIZE_KB),
-            "-b", &format!("files:{}", FILE_ROTATION_SIZE),
-            "-B", &format!("{}", KERNEL_BUFFER_SIZE_MB),
-            "-s", &format!("{}", SNAPLEN),
-            "--update-interval", &format!("{}", UPDATE_INTERVAL_MS),
-            // "-V", // for seeing packets as they come in in CLI
-            "-w", &format!("{}/capture_ringbuffer.pcapng", OUTPUT_DIR)
+            "ble-sniffer", "sniff", 
+            "--port", interface, 
+            "--output-pcap-file", &format!("{}/capture.pcapng", OUTPUT_DIR)
         ])
         .spawn()
-        .expect("Failed to start sniffing with tshark.");
-    println!("tshark started with PID: {}", tshark.id());
+        .expect("Failed to start nrfutil.");
 
-    tshark
+    println!("nrfSniffer started with PID: {}", sniffer.id());
+    sniffer
 }
 
-fn is_pcapng_file(path: &Path) -> bool {
-    path.extension().map_or(false, |ext| ext == "pcapng")
+// Checks the size of the file
+fn file_size(path: &Path) -> u64 {
+    fs::metadata(path).map(|m| m.len()).unwrap_or(0)
 }
 
-fn reached_max_size(path: &Path) -> bool {
-    match fs::metadata(path) {
-        Ok(metadata) => {
-            let file_size = metadata.len();
-            //println!("File: {:?}, Size: {} Kbytes", path.file_name().unwrap(), file_size/1024);
-            (file_size/1024) >= (MAX_SIZE_KB - 5) // files don't reach full size, they stop early
-        },
-        Err(_) => false,
-    }
-}
-
-fn send_file(client: &Client, api_url: &str, path: &Path) {
+fn offload_file(path: &Path) {
     println!("Send to API!");
-    // let file_name = path.file_name().unwrap().to_str().unwrap();
-    // println!("Sending file: {}", file_name);
+    let client = Client::new();
+    let api_url = "http://server/api";
+    let file_name = path.file_name().unwrap().to_str().unwrap();
+    println!("Sending file: {}", file_name);
 
     // let mut file = fs::File::open(path).unwrap();
     // let mut buffer = Vec::new();
@@ -81,62 +54,131 @@ fn send_file(client: &Client, api_url: &str, path: &Path) {
     // }
 }
 
-fn monitor_files(running: Arc<AtomicBool>) {
-    // queue contains files we already sent to API. When the ring buffer deletes the oldest file as the limit was reached,
-    // the queue will also remove the oldest entry as to save memory.
-    let mut sent_files: VecDeque<PathBuf> = VecDeque::with_capacity(FILE_ROTATION_SIZE);
+// Rotates the capture file by renaming it
+fn rotate_file() -> String {
+    let capturefile = format!("{dir}/{file}", dir=OUTPUT_DIR, file=CAPTURE_FILE);
+    let timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+    let new_file = format!("{}/retained_capture_{}.pcapng", OUTPUT_DIR, timestamp);
+    fs::rename(capturefile, &new_file).expect("Failed to rename file");
 
-    while running.load(Ordering::SeqCst) {
-        let client = Client::new();
-        let api_url = "http://server/api";  // TODO
-        let sniffed_data_dir = Path::new(OUTPUT_DIR);
+    println!("Rotated file: {}", new_file);
+    let new_path = Path::new(&new_file);
+    offload_file(new_path);
+    new_file
+}
 
-        // Check for new pcapng in dir
-        let files = fs::read_dir(sniffed_data_dir).unwrap();
-        for file in files {
-            let file = file.unwrap();
-            let path = file.path();
-           
-            let file_name = path.file_name().unwrap().to_str().unwrap();
-            // println!("Checking file: {}", file_name);
-            // println!("size?: {}", reached_max_size(&path));
-            // println!("in queue? {}", sent_files.contains(&path));
+// Deletes the oldest files if more than set amount are present
+fn delete_oldest_files() {
+    let mut files: Vec<_> = fs::read_dir(".")
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with("capture_"))
+        .collect();
 
-            // If the file is a pcapng file and has reached the max size, send it
-            if is_pcapng_file(&path) && reached_max_size(&path) && !sent_files.contains(&path) {
-                //println!("Conditions Met");
-                send_file(&client, &api_url, &path);
-                
-                // Manage the queue
-                if sent_files.len() == FILE_ROTATION_SIZE {
-                    sent_files.pop_front();
-                }
+    files.sort_by_key(|entry| entry.metadata().unwrap().modified().unwrap());
 
-            sent_files.push_back(path.clone());
-            }
-            
+    while files.len() > MAX_FILE_RETENTION {
+        if let Some(old_file) = files.pop() {
+            fs::remove_file(old_file.path()).expect("Failed to delete file");
         }
-
-        thread::sleep(Duration::from_secs(5));
     }
 }
 
-fn stop_sniff(tshark_process: &mut Child) {
-    // kill the tshark sniffing operation
-    match tshark_process.kill() {
-        Ok(_) => println!("tshark sniffing process killed successfully."),
-        Err(err) => eprintln!("Failed to kill tshark process: {}", err),
+fn capture_monitor_offload(running: Arc<AtomicBool>, interface: &String) {
+    let path_string = format!("{dir}/{file}", dir=OUTPUT_DIR, file=CAPTURE_FILE);
+    let capture_file_path: &Path = Path::new(&path_string);
+    // start sniffer
+    let mut sniffer: Child = start_nrf_sniffer(interface);
+
+    while running.load(Ordering::SeqCst) {
+        thread::sleep(Duration::from_secs(5)); // no need to constantly check
+        println!("Cap file size: {}", file_size(capture_file_path));
+        if file_size(capture_file_path) >= MAX_SIZE {
+            // Rotate file out -- simulating a ringbuffer as best as we can
+            let __rotated_file = rotate_file();
+
+            // Ensure no more than a specified amount of files persist
+            delete_oldest_files();
+
+            // Restart nrfutil to capture in a new file
+            stop_sniff(&mut sniffer);
+            sniffer = start_nrf_sniffer(interface);
+        }
+    }  
+
+    // Clean shutdown
+    println!("Stopping sniffer...");
+    stop_sniff(&mut sniffer);
+    println!("Exiting Cleanly...");
+
+}
+
+fn stop_sniff(sniffer: &mut Child) {
+    // kill the sniffing operation
+    match sniffer.kill() {
+        Ok(_) => println!("nrfutil ble-sniffer sniffing process killed successfully."),
+        Err(err) => eprintln!("Failed to kill nrf ble-sniffer process: {}", err),
     }
 
     // wait for process to fully exit
-    match tshark_process.wait() {
-        Ok(status) => println!("tshark exited with status: {}", status),
-        Err(err) => eprintln!("Error waiting for tshark to exit: {}", err),
+    match sniffer.wait() {
+        Ok(status) => println!("nrf sniffer exited with status: {}", status),
+        Err(err) => eprintln!("Error waiting for nrf ble-sniffer to exit: {}", err),
     }
 }
 
+fn get_interface() -> String {
+    let output = Command::new("nrfutil")
+        .args(&["device", "list"])
+        .output()
+        .expect("Failed to run nrfutil device list");
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+
+    // Find the line that starts with "ports"
+    for line in output_str.lines() {
+        if line.starts_with("ports") {
+            // Extract COM3 or similar from the line
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            return parts[1].to_string(); // COM3 is the second part
+        }
+    }
+    
+    panic!("No valid interface found.");
+}
+
+fn clear_artifacts() -> std::io::Result<()> {
+    let sniffed_data_dir = Path::new(OUTPUT_DIR);
+    if !sniffed_data_dir.exists() {
+        fs::create_dir(sniffed_data_dir).expect("Failed to create Sniffed_Data directory");
+    }
+
+    let paths = fs::read_dir(OUTPUT_DIR)?;
+    let extension = "pcapng";
+
+    for path in paths {
+        let path = path?.path();
+
+        // Check if it file and has the desired extension
+        if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some(extension) {
+            fs::remove_file(&path)?;
+            println!("\tDeleted artifact file: {:?}", path);
+        }
+    }
+
+    Ok(())
+}
 fn main() {
-    println!("Starting Sniffing!");
+    println!("\nStarting sensor!\n");
+    println!("Clearing old artifacts...");
+    if let Err(e) = clear_artifacts() {
+        eprintln!("Failed to clear artifact files: {}", e);
+    }
+
+    // auto detects what port the sniffer identified itself as
+    let interface: String = get_interface();
+    println!("\nDongle detected on port: {}\n", interface);
+
     // atomic boolean to track if the program should stop
     let running = Arc::new(AtomicBool::new(true));
 
@@ -149,13 +191,8 @@ fn main() {
         }).expect("Error setting Ctrl-C handler");
     }
    
-    // start sniffer
-    let mut tshark_process = start_sniff();
-    // monitor the data dir and offload data
-    monitor_files(running.clone());
+    // capture & monitor the data dir, offloading data
+    capture_monitor_offload(running.clone(), &interface);
 
-    // Clean shutdown
-    println!("Stopping tshark...");
-    stop_sniff(&mut tshark_process);
-    println!("Exiting Cleanly...");
+    println!("\nSensor shutting down.\n");
 }
