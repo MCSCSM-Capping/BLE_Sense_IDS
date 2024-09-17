@@ -48,7 +48,7 @@ def groups(request: HttpRequest) -> HttpResponse:
 
 def add_group(request:HttpRequest) -> HttpResponse:
     return render(request, "addGroup.html")
-    #do I need to add some more code here?
+
 
 def add_sensor(request:HttpRequest) -> HttpResponse:
 
@@ -62,3 +62,4 @@ def dashboard(request:HttpRequest) -> HttpResponse:
     context1 = {"sensors": [sensor1,sensor2, sensor3]}
 
     return render(request, "dashboard.html", context=context)
+    #how do I return the second context here? I tried changing the third argument to a dict but it didn't work
