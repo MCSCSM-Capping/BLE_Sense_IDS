@@ -18,8 +18,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from client.views import groups
+from client.views import add_group
+from client.views import add_sensor
+from client.views import dashboard
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("group/", groups, name="groups"),
+    path("groups/", groups, name="groups"),
+    path("addGroup/", add_group, name="add_group"),
+    path("addSensor/", add_sensor, name="add_sensor"),
+    path("dashboard/", dashboard, name="dashboard"),
+
 ]
