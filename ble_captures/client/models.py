@@ -46,11 +46,9 @@ class Scanner(models.Model):
     __tablename__ = "Scanners"
     name = models.TextField()
 
-    group = models.ForeignKey(
-        Group, on_delete=models.CASCADE, related_name="registries"
-    )
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="scanners")
     company = models.ForeignKey(
-        Company, on_delete=models.CASCADE, related_name="registries"
+        Company, on_delete=models.CASCADE, related_name="scanners"
     )
 
     packets: models.QuerySet["Packet"]
