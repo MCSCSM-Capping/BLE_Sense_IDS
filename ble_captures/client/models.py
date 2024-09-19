@@ -57,7 +57,7 @@ class Scanner(models.Model):
 class Packet(models.Model):
     __tablename__ = "Packets"
     mac_address = models.TextField()
-    mac_frequence = models.FloatField()
+    mac_frequencey = models.FloatField()
     company = models.TextField()
     # TODO: dicuss this
     #   should this be time since the recording started?
