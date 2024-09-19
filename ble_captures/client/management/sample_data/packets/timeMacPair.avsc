@@ -1,0 +1,10 @@
+{"namespace": "timeMacPair.avro",
+  "type": "record",
+  "name": "timeMacPair",
+  "fields": [
+    {"name": "time_stamp", "type": "double"},
+    {"name": "power_level", "type": "int"},
+    {"name": "advertising_address", "type": "long"},
+    {"name": "company_id", "type": "int"}
+  ]
+}
