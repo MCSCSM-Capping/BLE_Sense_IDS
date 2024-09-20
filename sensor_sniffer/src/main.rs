@@ -6,7 +6,7 @@ use reqwest::blocking::Client;
 use std::collections::VecDeque;
 
 const QUEUE_MAX_SIZE: usize = 500;
-const API_ENDPOINT: string = "http://server/api";
+const API_ENDPOINT: &str = "http://server/api";
 
 // Starts the NRFutil ble-sniffer tool for capturing BLE packets
 fn start_nrf_sniffer(interface: &String) -> Child {
@@ -37,7 +37,7 @@ fn offload(queue: &mut VecDeque<String>) {
             data_to_send.push(item);
         }
     }
-    
+
     // let response = client.post(api_url)
     //     .body(buffer)
     //     .header("Content-Type", "application/octet-stream")
