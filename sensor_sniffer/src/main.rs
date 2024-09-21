@@ -1,9 +1,9 @@
-use std::process::{Command, Child, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::io::{BufReader, BufRead};
-use std::sync::Arc;
 use reqwest::blocking::Client;
 use std::collections::VecDeque;
+use std::io::{BufRead, BufReader};
+use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 const QUEUE_MAX_SIZE: usize = 500;
 const __API_ENDPOINT: &str = "http://server/api";
@@ -12,18 +12,22 @@ const __API_ENDPOINT: &str = "http://server/api";
 fn start_nrf_sniffer(interface: &String) -> Child {
     let sniffer = Command::new("nrfutil")
         .args(&[
-            "ble-sniffer", "sniff",     // call sniffer
-            "--port", interface,        // sniff on interface we detected it on
-            "--log-output=stdout",      // send logs to stdout
-            "--json",                   // so output is formatted
-            "--log-level", "debug",     // so we can see packets in stdout
-            "--output-pcap-file", "NUL" // trick nrf into running but not creating its pcapng
+            "ble-sniffer",
+            "sniff", // call sniffer
+            "--port",
+            interface,             // sniff on interface we detected it on
+            "--log-output=stdout", // send logs to stdout
+            "--json",              // so output is formatted
+            "--log-level",
+            "debug", // so we can see packets in stdout
+            "--output-pcap-file",
+            "NUL", // trick nrf into running but not creating its pcapng
         ])
-        .stdout(Stdio::piped())// pipe stdout so rust can capture and process it
+        .stdout(Stdio::piped()) // pipe stdout so rust can capture and process it
         .spawn() // spawn the process
         .expect("Failed to start nrfutil.");
     println!("nrfSniffer started with PID: {}", sniffer.id());
-    return sniffer // return process so we can reference it later
+    return sniffer; // return process so we can reference it later
 }
 
 fn offload_to_api(queue: &mut VecDeque<String>) {
@@ -53,7 +57,7 @@ fn offload_to_api(queue: &mut VecDeque<String>) {
 
 fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
     let mut packet_queue: VecDeque<String> = VecDeque::new(); // queue to hold data
-    // start sniffer
+                                                              // start sniffer
     let mut sniffer: Child = start_nrf_sniffer(interface);
 
     // we do this loop forever (or until interrupt)
@@ -65,11 +69,12 @@ fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
             for line in reader.lines() {
                 let line = line.expect("Could not read line from stdout");
                 //println!("{}", line.clone());
-                if line.contains("Parsed packet") { // atm we only want packet data
+                if line.contains("Parsed packet") {
+                    // atm we only want packet data
                     // cut nrf log header and remove trailing brackets
-                    let packet: String = line[66..line.len()-2].to_string();
+                    let packet: String = line[66..line.len() - 2].to_string();
                     packet_queue.push_back(packet); // add packet to end of queue
-                    // println!("Queue Size: {}", queue.len());
+                                                    // println!("Queue Size: {}", queue.len());
                 }
 
                 if packet_queue.len() >= QUEUE_MAX_SIZE {
@@ -77,7 +82,7 @@ fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
                 }
             }
         }
-    }  
+    }
     // dump_queue() if shutting down, might want to dump the queue to api first?
 }
 
@@ -113,9 +118,10 @@ fn main() {
         ctrlc::set_handler(move || {
             println!("Ctrl+C Interrupt Received, shutting down...");
             r.store(false, Ordering::SeqCst);
-        }).expect("Error setting Ctrl-C handler");
+        })
+        .expect("Error setting Ctrl-C handler");
     }
-   
+
     // capture packets and periodically send to api
     parse_offload(running.clone(), &interface);
 

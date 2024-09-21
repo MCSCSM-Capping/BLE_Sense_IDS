@@ -1,14 +1,20 @@
 import win32pipe, win32file, pywintypes
 
-pipe_name = r'\\.\pipe\mypipe'
+pipe_name = r"\\.\pipe\mypipe"
 
 # Create the named pipe with wide-character (W) support
 print(f"Creating named pipe: {pipe_name}")
 pipe = win32pipe.CreateNamedPipe(
     pipe_name,  # Pipe name in wide-character format
     win32pipe.PIPE_ACCESS_DUPLEX,  # Read/Write access
-    win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_MESSAGE | win32pipe.PIPE_WAIT,  # Message type pipe, blocking
-    1, 65536, 65536, 0, None  # Max instances, output buffer, input buffer, timeout
+    win32pipe.PIPE_TYPE_MESSAGE
+    | win32pipe.PIPE_READMODE_MESSAGE
+    | win32pipe.PIPE_WAIT,  # Message type pipe, blocking
+    1,
+    65536,
+    65536,
+    0,
+    None,  # Max instances, output buffer, input buffer, timeout
 )
 
 print("Waiting for a client to connect...")

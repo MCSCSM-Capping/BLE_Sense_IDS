@@ -1,15 +1,17 @@
 import sys
 import win32file, pywintypes
 
-pipe_name = r'\\.\pipe\mypipe'
+pipe_name = r"\\.\pipe\mypipe"
 
 # Create or connect to the named pipe
 pipe = win32file.CreateFileW(
     pipe_name,  # Pipe name in wide-character format
     win32file.GENERIC_WRITE,  # Write access
-    0, None,
+    0,
+    None,
     win32file.OPEN_EXISTING,
-    0, None
+    0,
+    None,
 )
 
 try:

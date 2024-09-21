@@ -1,4 +1,4 @@
-''' LINUX '''
+"""LINUX"""
 
 # import os
 
@@ -17,20 +17,27 @@
 #         if data:
 #             print(f"Received: {data.strip()}")
 
-
-'''WIN'''
+"""WIN"""
 import win32pipe, win32file, win32event, pywintypes
 
-pipe_name = r'\\.\pipe\mypipe' # windows uses a special IPC (Inter-Process Communication) path
+pipe_name = (
+    r"\\.\pipe\mypipe"  # windows uses a special IPC (Inter-Process Communication) path
+)
 print("Pipe: " + pipe_name)
+
 
 def create_named_pipe(name):
     return win32pipe.CreateNamedPipe(
         name,
         win32pipe.PIPE_ACCESS_INBOUND,
         win32pipe.PIPE_TYPE_BYTE | win32pipe.PIPE_READMODE_BYTE | win32pipe.PIPE_WAIT,
-        1, 65536, 65536, 0, None
+        1,
+        65536,
+        65536,
+        0,
+        None,
     )
+
 
 def main():
     pipe = create_named_pipe(pipe_name)
@@ -40,14 +47,14 @@ def main():
 
     try:
         while True:
-            data = win32file.ReadFile(pipe, 64*1024)[1]
+            data = win32file.ReadFile(pipe, 64 * 1024)[1]
             if data:
-                print(data.decode('utf-8'))  # Adjust as needed for binary data
+                print(data.decode("utf-8"))  # Adjust as needed for binary data
             else:
                 break
     finally:
         win32file.CloseHandle(pipe)
 
-if __name__ == '__main__':
-    main()
 
+if __name__ == "__main__":
+    main()
