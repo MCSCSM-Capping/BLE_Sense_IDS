@@ -1,65 +1,40 @@
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from client.models import *
+from django.views import View
 from dataclasses import dataclass
 
 
-@dataclass
-class Group:
-    name: str
-    code: str
-    city: str
-    state: str
-    sensor: str
-
-@dataclass
-class Sensor:
-    name: str
-    code: str
-    ID: str
-
-sensor1 = Sensor(
-    name="Group A", code="xxxx", ID="24001"
-)
-
-sensor2 = Sensor(
-    name="Group A", code="xxxx", ID="24003"
-)
-
-sensor3 = Sensor(
-    name="Group B", code="54321", ID="777"
-)
-
-group1 = Group(
-        name="Group A", code="xxxx", city="New York", state="NY", sensor="Sensor1"
-    )
-group2 = Group(
-        name="Group B", code="54321", city="Los Angeles", state="CA", sensor="Sensor2"
-    )
-group3 = Group(
-        name="Group C", code="98765", city="Chicago", state="IL", sensor="Sensor3"
-    )    
-
-
 def groups(request: HttpRequest) -> HttpResponse:
-
-    context = {"groups": [group1, group2, group3]}
+    context = {"groups": Group.objects.all()}
 
     return render(request, "groups.html", context=context)
 
-def add_group(request:HttpRequest) -> HttpResponse:
+
+def add_group(request: HttpRequest) -> HttpResponse:
     return render(request, "addGroup.html")
 
 
-def add_sensor(request:HttpRequest) -> HttpResponse:
+class AddSensor(View):
+    def get(self, request: HttpRequest):
+        context = {"groups": Group.objects.all()}
+        return render(request, "addSensor.html", context=context)
 
-    context = {"groups": [group1, group2, group3]}
+    def post(self, request: HttpRequest):
+        form = request.POST
+        name = form["name"]
+        group_pk = form["group_pk"]
+        group = Group.objects.get(pk=group_pk)
+        company = None
+        raise NotImplemented
+        new_sensor = Scanner(name=name, group=group, company)
+        new_sensor.save()
+        return HttpResponse("Add the scanner")
 
-    return render(request,"addSensor.html", context=context)
 
-def dashboard(request:HttpRequest) -> HttpResponse:
-
-    context = {"groups": [group1, group2, group3]}
-    context1 = {"sensors": [sensor1,sensor2, sensor3]}
+def dashboard(request: HttpRequest) -> HttpResponse:
+    context = {"groups": Group.objects.all()}
+    context1 = {"sensors": Scanner.objects.all()}
 
     return render(request, "dashboard.html", context=context)
-    #how do I return the second context here? I tried changing the third argument to a dict but it didn't work
+    # how do I return the second context here? I tried changing the third argument to a dict but it didn't work
