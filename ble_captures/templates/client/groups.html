@@ -56,18 +56,14 @@
                 <thead>
                     <th>Group Name</th>
                     <th>Group Code</th>
-                    <th>City</th>
-                    <th>State</th>
                     <th>Active Sensors</th>
                 </thead>
                 <tbody>
                     {% for group in groups %}
                     <tr>
                     <td>{{ group.name }}</td>
-                    <td>{{ group.code }}</td>
-                    <td>{{ group.city }}</td>
-                    <td>{{ group.state }}</td>
-                    <td>{{ group.sensors }}</td>
+                    <td>{{ group.pk }}</td>
+                    <td>{{ group.scanners.count }}</td>
                     <tr>
                     {% endfor %}
                 </tbody>
