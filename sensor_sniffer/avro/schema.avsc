@@ -1,0 +1,16 @@
+{
+  "namespace": "Packet.avro",
+  "type": "record",
+  "name": "BLE_Packet",
+  "fields": [
+    {"name": "timestamp", "type": "double", "_comment": "Packet timestamp in seconds"},
+    {"name": "RSSI", "type": "int", "_comment": "Received signal strength indication"},
+    {"name": "channel_index", "type": "int", "_comment": "BLE channel index (0-39)"},
+    {"name": "advertising_address", "type": "long", "_comment": "BLE device adv address"},
+    {"name": "company_id", "type": "[null, int]", "_comment": "Optional Company identifier from advertisement"},
+    {"name": "packet_counter", "type": "long", "_comment": "Packet counter from sensor"},
+    {"name": "protocol_version", "type": "int", "_comment": "Version of protocol"},
+    {"name": "power_level", "type": "int", "_comment": "Power level of the packet"}
+  ]
+}
+// null, boolean, int, long, float, double, bytes, string are only valid types
