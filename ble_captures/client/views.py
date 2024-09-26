@@ -5,7 +5,9 @@ from django.views import View
 from dataclasses import dataclass
 
 
+
 def groups(request: HttpRequest) -> HttpResponse:
+    
     context = {"groups": Group.objects.all()}
 
     return render(request, "groups.html", context=context)
@@ -14,6 +16,9 @@ def groups(request: HttpRequest) -> HttpResponse:
 def add_group(request: HttpRequest) -> HttpResponse:
     return render(request, "addGroup.html")
 
+def activity(request: HttpRequest) -> HttpResponse:
+
+    return render(request, "activity.html")
 
 class AddSensor(View):
     def get(self, request: HttpRequest):
@@ -27,14 +32,13 @@ class AddSensor(View):
         group = Group.objects.get(pk=group_pk)
         company = None
         raise NotImplemented
-        new_sensor = Scanner(name=name, group=group, company)
-        new_sensor.save()
-        return HttpResponse("Add the scanner")
+        #new_sensor = Scanner(name=name, group=group, company)
+        #new_sensor.save()
+        #return HttpResponse("Add the scanner")
 
 
 def dashboard(request: HttpRequest) -> HttpResponse:
-    context = {"groups": Group.objects.all()}
-    context1 = {"sensors": Scanner.objects.all()}
+
+    context = {"groups": Group.objects.all(), "sensors": Scanner.objects.all()}
 
     return render(request, "dashboard.html", context=context)
-    # how do I return the second context here? I tried changing the third argument to a dict but it didn't work
