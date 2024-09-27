@@ -16,9 +16,11 @@ def groups(request: HttpRequest) -> HttpResponse:
 def add_group(request: HttpRequest) -> HttpResponse:
     return render(request, "addGroup.html")
 
-def activity(request: HttpRequest) -> HttpResponse:
+def activity(request: HttpRequest, group_pk) -> HttpResponse:
 
-    return render(request, "activity.html")
+    context = {"this_group": Group.objects.get(pk=group_pk)}
+    
+    return render(request, "activity.html", context = context)
 
 class AddSensor(View):
     def get(self, request: HttpRequest):

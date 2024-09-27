@@ -70,7 +70,7 @@
                     <td>{{ group.pk }}</td>
                     <td>{{ group.scanners.count }}</td>
                     <td>
-                        <a href= "http://127.0.0.1:8000/activity" +"?group=" + {{group.name}}>
+                        <a href= "http://127.0.0.1:8000/activity/{{group.pk}}"> <!--change this to groupname if it can be unique-->
                         <button id="view_activity_{{ group.pk }}" type="button" class="btn btn-primary btn-sm">
                              View Activity
                         </button> 

@@ -25,5 +25,5 @@ urlpatterns = [
     path("addGroup/", add_group, name="add_group"),
     path("addSensor/", AddSensor.as_view(), name="add_sensor"),
     path("dashboard/", dashboard, name="dashboard"),
-    path("activity/", activity, name="activity" ),
+    path("activity/<int:group_pk>", activity, name="activity"),
 ]
