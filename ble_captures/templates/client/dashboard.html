@@ -92,9 +92,11 @@
                     </thead>
                     <tbody>
                         {% for sensor in sensors %}
+                        <tr>
                         <td>{{sensor.name}} </td>
                         <td>{{sensor.code}} </td>
                         <td>{{sensor.ID}} </td>
+                        <tr>
                         {% endfor %}
                     </tbody>
                 </table>

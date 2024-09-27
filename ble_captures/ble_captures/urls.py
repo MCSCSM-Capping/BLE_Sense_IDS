@@ -17,7 +17,7 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from client.views import groups, add_group, AddSensor, dashboard
+from client.views import groups, add_group, AddSensor, dashboard, activity
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -25,4 +25,5 @@ urlpatterns = [
     path("addGroup/", add_group, name="add_group"),
     path("addSensor/", AddSensor.as_view(), name="add_sensor"),
     path("dashboard/", dashboard, name="dashboard"),
+    path("activity/<int:group_pk>", activity, name="activity"),
 ]
