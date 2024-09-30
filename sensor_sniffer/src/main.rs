@@ -1,12 +1,42 @@
 use reqwest::blocking::Client;
 use std::collections::VecDeque;
+use std::sync::OnceLock;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+#[macro_use]
+extern crate ini;
 
-const QUEUE_MAX_SIZE: usize = 500;
-const __API_ENDPOINT: &str = "http://server/api";
+
+const CONFIG_PATH: &str = "./config/config.ini";
+static SERIAL_ID: OnceLock<u32> = OnceLock::new();
+static PACKET_BUFFER_SIZE: OnceLock<i32> = OnceLock::new();
+static API_ENDPOINT: OnceLock<String> = OnceLock::new();
+static HEARTBEAT_FREQ: OnceLock<u32> = OnceLock::new();
+
+// loads program constants from INI file
+fn load_config() {
+    // Load the INI file
+    let map = ini!(CONFIG_PATH);
+    // println!("{:#?}", map);
+
+    SERIAL_ID
+        .set(map["settings"]["serial_id"].clone().unwrap().parse::<u32>().unwrap())
+        .unwrap();
+
+    PACKET_BUFFER_SIZE
+        .set(map["settings"]["packet_buffer_size"].clone().unwrap().parse::<i32>().unwrap())
+        .unwrap();
+
+    API_ENDPOINT
+        .set(map["settings"]["api_endpoint"].clone().unwrap())
+        .unwrap();
+
+    HEARTBEAT_FREQ
+        .set(map["settings"]["heartbeat_freq"].clone().unwrap().parse::<u32>().unwrap())
+        .unwrap();
+}
 
 // Starts the NRFutil ble-sniffer tool for capturing BLE packets
 fn start_nrf_sniffer(interface: &String) -> Child {
@@ -33,13 +63,14 @@ fn start_nrf_sniffer(interface: &String) -> Child {
 fn offload_to_api(queue: &mut VecDeque<String>) {
     println!("Offloading to API!");
 
-    // create object to offload via API - its the first QUEUE_MAX_SIZE packets of the queue
+    // create object to offload via API - its the first PACKET_BUFFER_SIZE packets of the queue
     let mut data_to_send = Vec::new();
-    for _ in 0..QUEUE_MAX_SIZE {
+    for _ in 0..*PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
         if let Some(item) = queue.pop_front() {
             data_to_send.push(item);
         }
     }
+    
 
     // maybe move client creation to global so it isn't made every time this is called
     let __client = Client::new();
@@ -77,7 +108,7 @@ fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
                                                     // println!("Queue Size: {}", queue.len());
                 }
 
-                if packet_queue.len() >= QUEUE_MAX_SIZE {
+                if packet_queue.len() >= *PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
                     offload_to_api(&mut packet_queue); // by reference so offload can empty queue FIFO
                 }
             }
@@ -105,7 +136,10 @@ fn get_interface() -> String {
     panic!("No valid interface found.");
 }
 fn main() {
-    println!("\nStarting sensor!\n");
+    println!("\nLoading Config...\n");
+    load_config();
+
+    println!("\nStarting Sensor (Serial: {})!\n", SERIAL_ID.get().unwrap());
     // auto detects what port the sniffer identified itself as
     let interface: String = get_interface();
     println!("\nNRF Dongle detected on port: {}\n", interface);

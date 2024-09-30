@@ -1,0 +1,1 @@
+This folder stores configuration data for the sensor program. Within the INI file, unique configuration information for each embedded device is stored and used at runtime.
