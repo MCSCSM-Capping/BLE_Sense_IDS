@@ -55,7 +55,7 @@ ROOT_URLCONF = "ble_captures.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates" / "client"],
+        "DIRS": [BASE_DIR / "templates" / "client", BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
