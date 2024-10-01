@@ -1,19 +1,35 @@
 use reqwest::blocking::Client;
 use std::collections::VecDeque;
 use std::sync::OnceLock;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
+use std::fs::File;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use regex::Regex;
+use apache_avro::{Schema, Writer};
+use serde::{Deserialize, Serialize};
 #[macro_use]
 extern crate ini;
-
 
 const CONFIG_PATH: &str = "./config/config.ini";
 static SERIAL_ID: OnceLock<u32> = OnceLock::new();
 static PACKET_BUFFER_SIZE: OnceLock<i32> = OnceLock::new();
 static API_ENDPOINT: OnceLock<String> = OnceLock::new();
 static HEARTBEAT_FREQ: OnceLock<u32> = OnceLock::new();
+static AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct BLEPacket {
+    pub timestamp: f64,                // Packet timestamp in seconds
+    pub rssi: i32,                     // Received signal strength indication
+    pub channel_index: i32,            // BLE channel index (0-39)
+    pub advertising_address: i64,      // BLE device adv address
+    pub company_id: i32,               // Company identifier from advertisement
+    pub packet_counter: i64,           // Packet counter from sensor
+    pub protocol_version: i32,         // Version of protocol
+    pub power_level: i32,              // Power level of the packet
+}
 
 // loads program constants from INI file
 fn load_config() {
@@ -35,6 +51,15 @@ fn load_config() {
 
     HEARTBEAT_FREQ
         .set(map["settings"]["heartbeat_freq"].clone().unwrap().parse::<u32>().unwrap())
+        .unwrap();
+
+    let mut schema_file = File::open("./avro/schema.avsc").expect("Unable to open avro schema file");
+    let mut schema_str = String::new();
+    schema_file.read_to_string(&mut schema_str).expect("Unable to read schema file");
+    let schema = Schema::parse_str(&schema_str).expect("Unable to parse avro schema");
+
+    AVRO_SCHEMA
+        .set(schema)
         .unwrap();
 }
 
@@ -60,7 +85,85 @@ fn start_nrf_sniffer(interface: &String) -> Child {
     return sniffer; // return process so we can reference it later
 }
 
-fn offload_to_api(queue: &mut VecDeque<String>) {
+fn parse_ble_packet(input: &str) -> BLEPacket {
+    let timestamp_re = Regex::new(r"TODO").unwrap();
+    let rssi_re = Regex::new(r"TODO").unwrap();
+    let channel_index_re = Regex::new(r"TODO").unwrap();
+    let advertising_address_re = Regex::new(r"TODO").unwrap();
+    let company_id_re = Regex::new(r"TODO").unwrap();
+    let packet_counter_re = Regex::new(r"TODO").unwrap();
+    let protocol_version_re = Regex::new(r"TODO").unwrap();
+    let power_level_re = Regex::new(r"TODO").unwrap();
+
+    let timestamp = timestamp_re
+        .captures(input)
+        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<f64>().ok()))
+        .flatten()
+        .unwrap_or(0.0); // Default to 0.0 if parsing fails
+
+    let rssi = rssi_re
+        .captures(input)
+        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
+        .flatten()
+        .unwrap_or(0); // Default to 0 if parsing fails
+
+    let channel_index = channel_index_re
+        .captures(input)
+        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
+        .flatten()
+        .unwrap_or(0); // Default to 0 if parsing fails
+
+    let advertising_address = advertising_address_re
+        .captures(input)
+        .and_then(|cap| cap.get(1).map(|m| i64::from_str_radix(m.as_str(), 16).ok()))
+        .flatten()
+        .unwrap_or(0); // Default to 0 if parsing fails
+
+    let company_id = company_id_re
+        .captures(input)
+        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
+        .flatten()
+        .unwrap_or(-1); // Default to -1 if parsing fails
+
+    let packet_counter = packet_counter_re
+        .captures(input)
+        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i64>().ok()))
+        .flatten()
+        .unwrap_or(0); // Default to 0 if parsing fails
+
+    let protocol_version = protocol_version_re
+        .captures(input)
+        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
+        .flatten()
+        .unwrap_or(0); // Default to 0 if parsing fails
+
+    let power_level = power_level_re
+        .captures(input)
+        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
+        .flatten()
+        .unwrap_or(0); // Default to 0 if parsing fails
+
+    BLEPacket {
+        timestamp,
+        rssi,
+        channel_index,
+        advertising_address,
+        company_id,
+        packet_counter,
+        protocol_version,
+        power_level,
+    }
+}
+
+fn encode_avro(packet: BLEPacket) -> Vec<u8> {
+    let mut writer = Writer::new(&AVRO_SCHEMA.get().unwrap(), Vec::new());
+    writer.append_ser(packet).expect("Unable to serialize data");
+    let encoded_data = writer.into_inner().expect("Unable to get encoded data");
+
+    encoded_data
+}
+
+fn offload_to_api(queue: &mut VecDeque<Vec<u8>>) {
     println!("Offloading to API!");
 
     // create object to offload via API - its the first PACKET_BUFFER_SIZE packets of the queue
@@ -87,7 +190,7 @@ fn offload_to_api(queue: &mut VecDeque<String>) {
 }
 
 fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
-    let mut packet_queue: VecDeque<String> = VecDeque::new(); // queue to hold data
+    let mut packet_queue: VecDeque<Vec<u8>> = VecDeque::new(); // queue to hold data
                                                               // start sniffer
     let mut sniffer: Child = start_nrf_sniffer(interface);
 
@@ -103,9 +206,11 @@ fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
                 if line.contains("Parsed packet") {
                     // atm we only want packet data
                     // cut nrf log header and remove trailing brackets
-                    let packet: String = line[66..line.len() - 2].to_string();
-                    packet_queue.push_back(packet); // add packet to end of queue
-                                                    // println!("Queue Size: {}", queue.len());
+                    let packet: &str = &line[66..line.len() - 2];
+                    let parsed_ble_packet: BLEPacket = parse_ble_packet(packet); 
+                    let encoded_packet: Vec<u8> = encode_avro(parsed_ble_packet);
+                    packet_queue.push_back(encoded_packet);
+                    // println!("Queue Size: {}", queue.len());
                 }
 
                 if packet_queue.len() >= *PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
