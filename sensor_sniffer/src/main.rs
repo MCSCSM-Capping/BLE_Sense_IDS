@@ -87,12 +87,13 @@ fn start_nrf_sniffer(interface: &String) -> Child {
 
 fn parse_ble_packet(input: &str) -> BLEPacket {
     let timestamp_re = Regex::new(r"TODO").unwrap();
-    let rssi_re = Regex::new(r"TODO").unwrap();
-    let channel_index_re = Regex::new(r"TODO").unwrap();
-    let advertising_address_re = Regex::new(r"TODO").unwrap();
+    let rssi_re = Regex::new(r"rssi_sample:\s([-]?\d+)").unwrap();
+    let channel_index_re = Regex::new(r"channel_index:\s(\d+)").unwrap();
+    // mac addresses are missing leading 0s for some reason...
+    let advertising_address_re = Regex::new(r"advertising_address:\sBleAddress\(((([0-9A-Fa-f]{1,2})[:-]){5}([0-9A-Fa-f]{1,2}))(\s[\w]*)?\)").unwrap();
     let company_id_re = Regex::new(r"TODO").unwrap();
-    let packet_counter_re = Regex::new(r"TODO").unwrap();
-    let protocol_version_re = Regex::new(r"TODO").unwrap();
+    let packet_counter_re = Regex::new(r"packet_counter:\s(\d+)").unwrap();
+    let protocol_version_re = Regex::new(r"protocol_version:\sVersionX\((\d+)\)").unwrap();
     let power_level_re = Regex::new(r"TODO").unwrap();
 
     let timestamp = timestamp_re
