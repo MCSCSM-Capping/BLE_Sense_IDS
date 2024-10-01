@@ -9,6 +9,8 @@ use std::sync::Arc;
 use regex::Regex;
 use apache_avro::{Schema, Writer};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+extern crate hex;
 #[macro_use]
 extern crate ini;
 
@@ -29,6 +31,9 @@ pub struct BLEPacket {
     pub packet_counter: i64,           // Packet counter from sensor
     pub protocol_version: i32,         // Version of protocol
     pub power_level: i32,              // Power level of the packet
+    pub oui: String,                   // Manufacturer based on MAC address
+    pub long_device_name: String,      // Device's chosen name from adv data
+    pub short_device_name: String     // Device's shortened name
 }
 
 // loads program constants from INI file
@@ -85,8 +90,70 @@ fn start_nrf_sniffer(interface: &String) -> Child {
     return sniffer; // return process so we can reference it later
 }
 
+fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String> {
+    let advertising_data = hex::decode(advertising_data_hex)
+        .expect("Failed to decode advertising data hex string");
+
+    let mut index = 0;
+    let mut result = HashMap::new();
+
+    // Insert default values
+    result.insert("long_device_name".to_string(), "Unknown".to_string());
+    result.insert("short_device_name".to_string(), "Unknown".to_string());
+    result.insert("company_id".to_string(), "0".to_string());
+    result.insert("power_level".to_string(), "0".to_string());
+
+    while index < advertising_data.len() {
+        let length = advertising_data[index] as usize;
+        if length == 0 {
+            break;
+        }
+
+        let ad_type = advertising_data[index + 1];
+        let ad_data = &advertising_data[index + 2..index + length + 1];
+
+        match ad_type {
+            0x09 => {
+                // Complete Local Name
+                if let Ok(name) = String::from_utf8(ad_data.to_vec()) {
+                    result.insert("long_device_name".to_string(), name);
+                }
+            }
+            0x08 => {
+                // Shortened Local Name
+                if let Ok(name) = String::from_utf8(ad_data.to_vec()) {
+                    result.insert("short_device_name".to_string(), name);
+                }
+            }
+            0xFF => {
+                // Manufacturer Specific Data
+                if ad_data.len() >= 2 {
+                    let company_id = (ad_data[1] as i32) << 8 | (ad_data[0] as i32);
+                    result.insert("company_id".to_string(), company_id.to_string());
+                }
+            }
+            0x0A => {
+                // TX Power Level
+                result.insert("power_level".to_string(), (ad_data[0] as i8).to_string());
+            }
+            _ => {
+                // Other data types can be handled here
+            }
+        }
+
+        index += length + 1;
+    }
+
+    result
+}
+
+fn get_oui(address: i64) -> String {
+    let temp: String = "Temp".to_string();
+    temp
+}
+
 fn parse_ble_packet(input: &str) -> BLEPacket {
-    let timestamp_re = Regex::new(r"TODO").unwrap();
+    let timestamp_re = Regex::new(r"fw_timestamp:\s(\d+)").unwrap();
     let rssi_re = Regex::new(r"rssi_sample:\s([-]?\d+)").unwrap();
     let channel_index_re = Regex::new(r"channel_index:\s(\d+)").unwrap();
     // mac addresses are missing leading 0s for some reason...
@@ -94,7 +161,7 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
     let company_id_re = Regex::new(r"TODO").unwrap();
     let packet_counter_re = Regex::new(r"packet_counter:\s(\d+)").unwrap();
     let protocol_version_re = Regex::new(r"protocol_version:\sVersionX\((\d+)\)").unwrap();
-    let power_level_re = Regex::new(r"TODO").unwrap();
+    let adv_data_re = Regex::new(r"data: AdvData\(\[([\d, ]+)\]\)").unwrap();
 
     let timestamp = timestamp_re
         .captures(input)
@@ -138,11 +205,24 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
         .flatten()
         .unwrap_or(0); // Default to 0 if parsing fails
 
-    let power_level = power_level_re
+    let adv_data = adv_data_re
         .captures(input)
-        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
-        .flatten()
-        .unwrap_or(0); // Default to 0 if parsing fails
+        .and_then(|cap| cap.get(1).map(|m| m.as_str()))
+        .unwrap_or(""); // Default to empty if parsing fails
+    let hex_adv_data: Vec<u8> = adv_data
+        .split(',')
+        .map(|s| s.trim().parse::<u8>().expect("Invalid input"))
+        .collect();
+    let adv_hex_string = hex_adv_data
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<String>();
+
+    let oui: String = get_oui(advertising_address);
+    let parsed_adv_data: HashMap<String, String> = parse_advertising_data(&adv_hex_string);
+    let power_level: i32 = parsed_adv_data["power_level"].parse::<i32>().ok().unwrap_or(0);
+    let long_device_name: String = parsed_adv_data["long_device_name"].to_string();
+    let short_device_name: String = parsed_adv_data["short_device_name"].to_string();
 
     BLEPacket {
         timestamp,
@@ -153,7 +233,11 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
         packet_counter,
         protocol_version,
         power_level,
+        oui,
+        long_device_name,
+        short_device_name
     }
+
 }
 
 fn encode_avro(packet: BLEPacket) -> Vec<u8> {
