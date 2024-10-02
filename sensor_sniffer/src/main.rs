@@ -195,8 +195,7 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
     let rssi_re = Regex::new(r"rssi_sample:\s([-]?\d+)").unwrap();
     let channel_index_re = Regex::new(r"channel_index:\s(\d+)").unwrap();
     // mac addresses are missing leading 0s for some reason...
-    let advertising_address_re = Regex::new(r"advertising_address:\sBleAddress\(((([0-9A-Fa-f]{1,2})[:-]){5}([0-9A-Fa-f]{1,2}))(\s[\w]*)?\)").unwrap();
-    let company_id_re = Regex::new(r"TODO").unwrap();
+    let advertising_address_re = Regex::new(r"advertising_address:\sBleAddress\(((?:[0-9A-Fa-f]{1,2}[:-]){5}[0-9A-Fa-f]{1,2})(?:\s[\w]*)?\)").unwrap();
     let packet_counter_re = Regex::new(r"packet_counter:\s(\d+)").unwrap();
     let protocol_version_re = Regex::new(r"protocol_version:\sVersionX\((\d+)\)").unwrap();
     let adv_data_re = Regex::new(r"data: AdvData\(\[([\d, ]+)\]\)").unwrap();
@@ -219,17 +218,19 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
         .flatten()
         .unwrap_or(0); // Default to 0 if parsing fails
 
-    let advertising_address = advertising_address_re
-        .captures(input)
-        .and_then(|cap| cap.get(1).map(|m| i64::from_str_radix(m.as_str(), 16).ok()))
-        .flatten()
-        .unwrap_or(0); // Default to 0 if parsing fails
+    let advertising_address: i64 = if let Some(caps) = advertising_address_re.captures(input) {
+        let mac_str = &caps[1]; // Capture the MAC address string
+        
+        // Split the MAC address into parts and parse as a vector of u8
+        let mac_address: Vec<u8> = mac_str.split(|c| c == ':' || c == '-')
+            .filter_map(|part| u8::from_str_radix(part, 16).ok())
+            .collect();
 
-    let company_id = company_id_re
-        .captures(input)
-        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
-        .flatten()
-        .unwrap_or(-1); // Default to -1 if parsing fails
+        // Convert the MAC address bytes to a single i64
+        mac_address.iter().fold(0, |acc, &byte| (acc << 8) | byte as i64)
+    } else {
+        -1 // Default to -1 if parsing fails
+    };
 
     let packet_counter = packet_counter_re
         .captures(input)
@@ -247,20 +248,30 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
         .captures(input)
         .and_then(|cap| cap.get(1).map(|m| m.as_str()))
         .unwrap_or(""); // Default to empty if parsing fails
-    let hex_adv_data: Vec<u8> = adv_data
-        .split(',')
-        .map(|s| s.trim().parse::<u8>().expect("Invalid input"))
-        .collect();
-    let adv_hex_string = hex_adv_data
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect::<String>();
+
+    // initialize to defaults in case no advertising data presented
+    let mut power_level: i32 = -1;
+    let mut company_id: i32 = -1;
+    let mut long_device_name: String = "Unknown".to_string();
+    let mut short_device_name: String = "Unknown".to_string();
+    if adv_data != "" {
+        let hex_adv_data: Vec<u8> = adv_data
+            .split(',')
+            .map(|s| s.trim().parse::<u8>().expect("Invalid input"))
+            .collect();
+        let adv_hex_string = hex_adv_data
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
+
+        let parsed_adv_data: HashMap<String, String> = parse_advertising_data(&adv_hex_string);
+        power_level = parsed_adv_data["power_level"].parse::<i32>().ok().unwrap_or(-1);
+        long_device_name = parsed_adv_data["long_device_name"].to_string();
+        short_device_name = parsed_adv_data["short_device_name"].to_string();
+        company_id = parsed_adv_data["company_id"].parse::<i32>().ok().unwrap_or(-1);
+    } 
 
     let oui: String = lookup_oui(advertising_address);
-    let parsed_adv_data: HashMap<String, String> = parse_advertising_data(&adv_hex_string);
-    let power_level: i32 = parsed_adv_data["power_level"].parse::<i32>().ok().unwrap_or(0);
-    let long_device_name: String = parsed_adv_data["long_device_name"].to_string();
-    let short_device_name: String = parsed_adv_data["short_device_name"].to_string();
 
     BLEPacket {
         timestamp,
@@ -327,11 +338,11 @@ fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
                 let line = line.expect("Could not read line from stdout");
                 //println!("{}", line.clone());
                 if line.contains("Parsed packet") {
-                    // atm we only want packet data
-                    // cut nrf log header and remove trailing brackets
-                    let packet: &str = &line[66..line.len() - 2];
-                    let parsed_ble_packet: BLEPacket = parse_ble_packet(packet); 
-                    let encoded_packet: Vec<u8> = encode_avro(parsed_ble_packet);
+                    let parsed_ble_packet: BLEPacket = parse_ble_packet(&line); 
+                    let encoded_packet: Vec<u8> = encode_avro(parsed_ble_packet.clone());
+                    println!("\n\n{}", line);
+                    println!("{:#?}", parsed_ble_packet);
+                    // println!("{:?}", encoded_packet);
                     packet_queue.push_back(encoded_packet);
                     // println!("Queue Size: {}", queue.len());
                 }
