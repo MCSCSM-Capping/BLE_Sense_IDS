@@ -1,7 +1,7 @@
 use reqwest::blocking::Client;
 use std::collections::VecDeque;
 use std::sync::OnceLock;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, Read, Result};
 use std::fs::File;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,11 +15,14 @@ extern crate hex;
 extern crate ini;
 
 const CONFIG_PATH: &str = "./config/config.ini";
+const AVRO_SCHEMA_PATH: &str = "./avro/schema.avsc";
+const OUI_LOOKUP_PATH: &str = "./config/oui.txt";
 static SERIAL_ID: OnceLock<u32> = OnceLock::new();
 static PACKET_BUFFER_SIZE: OnceLock<i32> = OnceLock::new();
 static API_ENDPOINT: OnceLock<String> = OnceLock::new();
 static HEARTBEAT_FREQ: OnceLock<u32> = OnceLock::new();
 static AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
+static OUI_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BLEPacket {
@@ -34,6 +37,27 @@ pub struct BLEPacket {
     pub oui: String,                   // Manufacturer based on MAC address
     pub long_device_name: String,      // Device's chosen name from adv data
     pub short_device_name: String     // Device's shortened name
+}
+
+fn parse_oui_file(file_path: &str) -> Result<HashMap<String, String>> {
+    let file = File::open(file_path)?;
+    let reader = BufReader::new(file);
+    let mut oui_map = HashMap::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.contains("(hex)") {
+            // Example line: "00-00-0A   (hex)    CISCO SYSTEMS, INC."
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() > 2 {
+                let oui = parts[0].replace("-", ":");
+                let company_name = parts[2..].join(" ");
+                oui_map.insert(oui, company_name);
+            }
+        }
+    }
+
+    Ok(oui_map)
 }
 
 // loads program constants from INI file
@@ -58,7 +82,7 @@ fn load_config() {
         .set(map["settings"]["heartbeat_freq"].clone().unwrap().parse::<u32>().unwrap())
         .unwrap();
 
-    let mut schema_file = File::open("./avro/schema.avsc").expect("Unable to open avro schema file");
+    let mut schema_file = File::open(AVRO_SCHEMA_PATH).expect("Unable to open avro schema file");
     let mut schema_str = String::new();
     schema_file.read_to_string(&mut schema_str).expect("Unable to read schema file");
     let schema = Schema::parse_str(&schema_str).expect("Unable to parse avro schema");
@@ -66,6 +90,10 @@ fn load_config() {
     AVRO_SCHEMA
         .set(schema)
         .unwrap();
+
+    if OUI_MAP.set(parse_oui_file(OUI_LOOKUP_PATH).unwrap()).is_err() {
+        eprintln!("Failed to initialize OUI map");
+    }
 }
 
 // Starts the NRFutil ble-sniffer tool for capturing BLE packets
@@ -147,9 +175,19 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
     result
 }
 
-fn get_oui(address: i64) -> String {
-    let temp: String = "Temp".to_string();
-    temp
+fn lookup_oui(mac_address: i64) -> String {
+    let oui_prefix = format!(
+        "{:02X}:{:02X}:{:02X}",
+        (mac_address >> 40) & 0xFF,
+        (mac_address >> 32) & 0xFF,
+        (mac_address >> 24) & 0xFF
+    );
+
+    // Use the map and return either the company name or "Unknown"
+    OUI_MAP.get()
+        .and_then(|map| map.get(&oui_prefix))
+        .unwrap_or(&"Unknown".to_string())
+        .clone() 
 }
 
 fn parse_ble_packet(input: &str) -> BLEPacket {
@@ -218,7 +256,7 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
         .map(|b| format!("{:02x}", b))
         .collect::<String>();
 
-    let oui: String = get_oui(advertising_address);
+    let oui: String = lookup_oui(advertising_address);
     let parsed_adv_data: HashMap<String, String> = parse_advertising_data(&adv_hex_string);
     let power_level: i32 = parsed_adv_data["power_level"].parse::<i32>().ok().unwrap_or(0);
     let long_device_name: String = parsed_adv_data["long_device_name"].to_string();
