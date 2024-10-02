@@ -62,8 +62,8 @@ fn parse_oui_file(file_path: &str) -> Result<HashMap<String, String>> {
 
 // loads program constants from INI file
 fn load_config() {
-    // Load the INI file
-    let map = ini!(CONFIG_PATH);
+    // Load the INI file by creating a map of the contents and setting our globals
+    let map: HashMap<String, HashMap<String, Option<String>>> = ini!(CONFIG_PATH);
     // println!("{:#?}", map);
 
     SERIAL_ID
@@ -82,15 +82,17 @@ fn load_config() {
         .set(map["settings"]["heartbeat_freq"].clone().unwrap().parse::<u32>().unwrap())
         .unwrap();
 
-    let mut schema_file = File::open(AVRO_SCHEMA_PATH).expect("Unable to open avro schema file");
-    let mut schema_str = String::new();
+    // load the avro schema into a schema obj for serialization
+    let mut schema_file: File = File::open(AVRO_SCHEMA_PATH).expect("Unable to open avro schema file");
+    let mut schema_str: String = String::new();
     schema_file.read_to_string(&mut schema_str).expect("Unable to read schema file");
-    let schema = Schema::parse_str(&schema_str).expect("Unable to parse avro schema");
+    let schema: Schema = Schema::parse_str(&schema_str).expect("Unable to parse avro schema");
 
     AVRO_SCHEMA
         .set(schema)
         .unwrap();
 
+    // load the OUI map so we can provide that information
     if OUI_MAP.set(parse_oui_file(OUI_LOOKUP_PATH).unwrap()).is_err() {
         eprintln!("Failed to initialize OUI map");
     }
@@ -98,7 +100,7 @@ fn load_config() {
 
 // Starts the NRFutil ble-sniffer tool for capturing BLE packets
 fn start_nrf_sniffer(interface: &String) -> Child {
-    let sniffer = Command::new("nrfutil")
+    let sniffer: Child = Command::new("nrfutil")
         .args(&[
             "ble-sniffer",
             "sniff", // call sniffer
@@ -118,27 +120,29 @@ fn start_nrf_sniffer(interface: &String) -> Child {
     return sniffer; // return process so we can reference it later
 }
 
+// take in a string of hex values that is the advertising payload of a BLE packet and parse it to get attributes from it
 fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String> {
-    let advertising_data = hex::decode(advertising_data_hex)
+    let advertising_data: Vec<u8> = hex::decode(advertising_data_hex)
         .expect("Failed to decode advertising data hex string");
 
-    let mut index = 0;
-    let mut result = HashMap::new();
+    let mut index: usize = 0;
+    let mut result: HashMap<String, String> = HashMap::new();
 
-    // Insert default values
+    // Insert default values in case info is not provided in the adv data (common)
     result.insert("long_device_name".to_string(), "Unknown".to_string());
     result.insert("short_device_name".to_string(), "Unknown".to_string());
-    result.insert("company_id".to_string(), "0".to_string());
-    result.insert("power_level".to_string(), "0".to_string());
+    result.insert("company_id".to_string(), "-1".to_string());
+    result.insert("power_level".to_string(), "-1".to_string());
 
+    // check the values for 'indicators'
     while index < advertising_data.len() {
-        let length = advertising_data[index] as usize;
+        let length: usize = advertising_data[index] as usize;
         if length == 0 {
             break;
         }
 
-        let ad_type = advertising_data[index + 1];
-        let ad_data = &advertising_data[index + 2..index + length + 1];
+        let ad_type: u8 = advertising_data[index + 1];
+        let ad_data: &[u8] = &advertising_data[index + 2..index + length + 1];
 
         match ad_type {
             0x09 => {
@@ -156,7 +160,7 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
             0xFF => {
                 // Manufacturer Specific Data
                 if ad_data.len() >= 2 {
-                    let company_id = (ad_data[1] as i32) << 8 | (ad_data[0] as i32);
+                    let company_id: i32 = (ad_data[1] as i32) << 8 | (ad_data[0] as i32);
                     result.insert("company_id".to_string(), company_id.to_string());
                 }
             }
@@ -175,8 +179,9 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
     result
 }
 
+// take in a mac and return the OUI
 fn lookup_oui(mac_address: i64) -> String {
-    let oui_prefix = format!(
+    let oui_prefix: String = format!(
         "{:02X}:{:02X}:{:02X}",
         (mac_address >> 40) & 0xFF,
         (mac_address >> 32) & 0xFF,
@@ -185,45 +190,47 @@ fn lookup_oui(mac_address: i64) -> String {
 
     // Use the map and return either the company name or "Unknown"
     OUI_MAP.get()
-        .and_then(|map| map.get(&oui_prefix))
+        .and_then(|map: &HashMap<String, String> | map.get(&oui_prefix))
         .unwrap_or(&"Unknown".to_string())
         .clone() 
 }
 
+// parse the log statement from nrfutil
 fn parse_ble_packet(input: &str) -> BLEPacket {
-    let timestamp_re = Regex::new(r"fw_timestamp:\s(\d+)").unwrap();
-    let rssi_re = Regex::new(r"rssi_sample:\s([-]?\d+)").unwrap();
-    let channel_index_re = Regex::new(r"channel_index:\s(\d+)").unwrap();
+    // use regex to extract the data from the log statement
+    let timestamp_re: Regex = Regex::new(r"fw_timestamp:\s(\d+)").unwrap();
+    let rssi_re: Regex = Regex::new(r"rssi_sample:\s([-]?\d+)").unwrap();
+    let channel_index_re: Regex = Regex::new(r"channel_index:\s(\d+)").unwrap();
     // mac addresses are missing leading 0s for some reason...
-    let advertising_address_re = Regex::new(r"advertising_address:\sBleAddress\(((?:[0-9A-Fa-f]{1,2}[:-]){5}[0-9A-Fa-f]{1,2})(?:\s[\w]*)?\)").unwrap();
-    let packet_counter_re = Regex::new(r"packet_counter:\s(\d+)").unwrap();
-    let protocol_version_re = Regex::new(r"protocol_version:\sVersionX\((\d+)\)").unwrap();
-    let adv_data_re = Regex::new(r"data: AdvData\(\[([\d, ]+)\]\)").unwrap();
+    let advertising_address_re: Regex = Regex::new(r"advertising_address:\sBleAddress\(((?:[0-9A-Fa-f]{1,2}[:-]){5}[0-9A-Fa-f]{1,2})(?:\s[\w]*)?\)").unwrap();
+    let packet_counter_re: Regex = Regex::new(r"packet_counter:\s(\d+)").unwrap();
+    let protocol_version_re: Regex = Regex::new(r"protocol_version:\sVersionX\((\d+)\)").unwrap();
+    let adv_data_re: Regex = Regex::new(r"data: AdvData\(\[([\d, ]+)\]\)").unwrap();
 
-    let timestamp = timestamp_re
+    let timestamp: f64 = timestamp_re
         .captures(input)
-        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<f64>().ok()))
+        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<f64>().ok()))
         .flatten()
         .unwrap_or(0.0); // Default to 0.0 if parsing fails
 
-    let rssi = rssi_re
+    let rssi: i32 = rssi_re
         .captures(input)
-        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
+        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok()))
         .flatten()
-        .unwrap_or(0); // Default to 0 if parsing fails
+        .unwrap_or(-1); // Default to -1 if parsing fails
 
-    let channel_index = channel_index_re
+    let channel_index: i32 = channel_index_re
         .captures(input)
-        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
+        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok()))
         .flatten()
-        .unwrap_or(0); // Default to 0 if parsing fails
+        .unwrap_or(-1); // Default to -1 if parsing fails
 
     let advertising_address: i64 = if let Some(caps) = advertising_address_re.captures(input) {
-        let mac_str = &caps[1]; // Capture the MAC address string
+        let mac_str: &str = &caps[1]; // Capture the MAC address string
         
         // Split the MAC address into parts and parse as a vector of u8
-        let mac_address: Vec<u8> = mac_str.split(|c| c == ':' || c == '-')
-            .filter_map(|part| u8::from_str_radix(part, 16).ok())
+        let mac_address: Vec<u8> = mac_str.split(|c: char| c == ':' || c == '-')
+            .filter_map(|part: &str| u8::from_str_radix(part, 16).ok())
             .collect();
 
         // Convert the MAC address bytes to a single i64
@@ -232,21 +239,21 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
         -1 // Default to -1 if parsing fails
     };
 
-    let packet_counter = packet_counter_re
+    let packet_counter: i64 = packet_counter_re
         .captures(input)
-        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i64>().ok()))
+        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<i64>().ok()))
         .flatten()
-        .unwrap_or(0); // Default to 0 if parsing fails
+        .unwrap_or(-1); // Default to -1 if parsing fails
 
-    let protocol_version = protocol_version_re
+    let protocol_version: i32 = protocol_version_re
         .captures(input)
-        .and_then(|cap| cap.get(1).map(|m| m.as_str().parse::<i32>().ok()))
+        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok()))
         .flatten()
-        .unwrap_or(0); // Default to 0 if parsing fails
+        .unwrap_or(-1); // Default to -1 if parsing fails
 
-    let adv_data = adv_data_re
+    let adv_data: &str = adv_data_re
         .captures(input)
-        .and_then(|cap| cap.get(1).map(|m| m.as_str()))
+        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str()))
         .unwrap_or(""); // Default to empty if parsing fails
 
     // initialize to defaults in case no advertising data presented
@@ -257,11 +264,11 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
     if adv_data != "" {
         let hex_adv_data: Vec<u8> = adv_data
             .split(',')
-            .map(|s| s.trim().parse::<u8>().expect("Invalid input"))
+            .map(|s: &str| s.trim().parse::<u8>().expect("Invalid input"))
             .collect();
-        let adv_hex_string = hex_adv_data
+        let adv_hex_string: String = hex_adv_data
             .iter()
-            .map(|b| format!("{:02x}", b))
+            .map(|b: &u8| format!("{:02x}", b))
             .collect::<String>();
 
         let parsed_adv_data: HashMap<String, String> = parse_advertising_data(&adv_hex_string);
@@ -289,28 +296,29 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
 
 }
 
+// use the schema to encode/serialize a BLEPacket to avro
 fn encode_avro(packet: BLEPacket) -> Vec<u8> {
-    let mut writer = Writer::new(&AVRO_SCHEMA.get().unwrap(), Vec::new());
+    let mut writer: Writer<'_, Vec<u8>> = Writer::new(&AVRO_SCHEMA.get().unwrap(), Vec::new());
     writer.append_ser(packet).expect("Unable to serialize data");
-    let encoded_data = writer.into_inner().expect("Unable to get encoded data");
+    let encoded_data: Vec<u8> = writer.into_inner().expect("Unable to get encoded data");
 
     encoded_data
 }
 
+// release encoded packets to the api
 fn offload_to_api(queue: &mut VecDeque<Vec<u8>>) {
     println!("Offloading to API!");
 
     // create object to offload via API - its the first PACKET_BUFFER_SIZE packets of the queue
-    let mut data_to_send = Vec::new();
+    let mut data_to_send: Vec<Vec<u8>> = Vec::new();
     for _ in 0..*PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
         if let Some(item) = queue.pop_front() {
             data_to_send.push(item);
         }
     }
-    
 
     // maybe move client creation to global so it isn't made every time this is called
-    let __client = Client::new();
+    let __client: Client = Client::new();
     // send the dequeued packets to API
     // let response = client.post(api_url)
     //     .body(buffer)
@@ -323,10 +331,10 @@ fn offload_to_api(queue: &mut VecDeque<Vec<u8>>) {
     // }
 }
 
+// constantly take in the output of nrfutil. stop with an interrupt. manage api sending.
 fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
     let mut packet_queue: VecDeque<Vec<u8>> = VecDeque::new(); // queue to hold data
-                                                              // start sniffer
-    let mut sniffer: Child = start_nrf_sniffer(interface);
+    let mut sniffer: Child = start_nrf_sniffer(interface); // start sniffer
 
     // we do this loop forever (or until interrupt)
     while running.load(Ordering::SeqCst) {
@@ -335,8 +343,8 @@ fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
             let reader = BufReader::new(stdout);
             // Read the stdout line by line as it comes in
             for line in reader.lines() {
-                let line = line.expect("Could not read line from stdout");
-                //println!("{}", line.clone());
+                let line: String = line.expect("Could not read line from stdout");
+                // println!("{}", line.clone());
                 if line.contains("Parsed packet") {
                     let parsed_ble_packet: BLEPacket = parse_ble_packet(&line); 
                     let encoded_packet: Vec<u8> = encode_avro(parsed_ble_packet.clone());
@@ -353,16 +361,17 @@ fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
             }
         }
     }
-    // dump_queue() if shutting down, might want to dump the queue to api first?
+    // dump_queue(); if shutting down, might want to dump the queue to api first to avoid data loss?
 }
 
+// detect the COM port/interface the sniffer connected to
 fn get_interface() -> String {
     let output = Command::new("nrfutil")
         .args(&["device", "list"])
         .output()
         .expect("Failed to run nrfutil device list");
 
-    let output_str = String::from_utf8_lossy(&output.stdout);
+    let output_str: = String::from_utf8_lossy(&output.stdout);
 
     // Find the line that starts with "ports"
     for line in output_str.lines() {
@@ -374,6 +383,7 @@ fn get_interface() -> String {
     }
     panic!("No valid interface found.");
 }
+
 fn main() {
     println!("\nLoading Config...\n");
     load_config();
@@ -384,10 +394,10 @@ fn main() {
     println!("\nNRF Dongle detected on port: {}\n", interface);
 
     // atomic boolean to track if the program should stop
-    let running = Arc::new(AtomicBool::new(true));
+    let running: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
     // ctrl c handler - so the program will exit the infinite loop
     {
-        let r = running.clone();
+        let r: Arc<AtomicBool> = running.clone();
         ctrlc::set_handler(move || {
             println!("Ctrl+C Interrupt Received, shutting down...");
             r.store(false, Ordering::SeqCst);
@@ -395,7 +405,7 @@ fn main() {
         .expect("Error setting Ctrl-C handler");
     }
 
-    // capture packets and periodically send to api
+    // capture packets, parse them, and periodically send to api
     parse_offload(running.clone(), &interface);
 
     println!("\nSensor shut down.\n");
