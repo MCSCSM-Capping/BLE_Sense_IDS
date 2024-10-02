@@ -371,7 +371,7 @@ fn get_interface() -> String {
         .output()
         .expect("Failed to run nrfutil device list");
 
-    let output_str: = String::from_utf8_lossy(&output.stdout);
+    let output_str = String::from_utf8_lossy(&output.stdout);
 
     // Find the line that starts with "ports"
     for line in output_str.lines() {
