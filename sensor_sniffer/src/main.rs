@@ -15,7 +15,7 @@ extern crate hex;
 extern crate ini;
 
 const CONFIG_PATH: &str = "./config/config.ini";
-const AVRO_SCHEMA_PATH: &str = "./avro/schema.avsc";
+const AVRO_SCHEMA_PATH: &str = "./config/schema.avsc";
 const OUI_LOOKUP_PATH: &str = "./config/oui.txt";
 static SERIAL_ID: OnceLock<u32> = OnceLock::new();
 static PACKET_BUFFER_SIZE: OnceLock<i32> = OnceLock::new();
@@ -25,7 +25,7 @@ static AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
 static OUI_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
 
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct BLEPacket {
+struct BLEPacket {
     pub timestamp: f64,                // Packet timestamp in seconds
     pub rssi: i32,                     // Received signal strength indication
     pub channel_index: i32,            // BLE channel index (0-39)
@@ -278,7 +278,10 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
         company_id = parsed_adv_data["company_id"].parse::<i32>().ok().unwrap_or(-1);
     } 
 
-    let oui: String = lookup_oui(advertising_address);
+    let mut oui: String = "Unknown".to_string();
+    if advertising_address != -1 {
+        oui = lookup_oui(advertising_address);
+    } 
 
     BLEPacket {
         timestamp,
