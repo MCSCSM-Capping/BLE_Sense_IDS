@@ -36,7 +36,8 @@ struct BLEPacket {
     pub power_level: i32,              // Power level of the packet
     pub oui: String,                   // Manufacturer based on MAC address
     pub long_device_name: String,      // Device's chosen name from adv data
-    pub short_device_name: String     // Device's shortened name
+    pub short_device_name: String,     // Device's shortened name
+    pub uuids: String                  // A string list of the device's service profiles 
 }
 
 fn parse_oui_file(file_path: &str) -> Result<HashMap<String, String>> {
@@ -127,6 +128,7 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
 
     let mut index: usize = 0;
     let mut result: HashMap<String, String> = HashMap::new();
+    let mut uuid_list: Vec<String> = Vec::new();
 
     // Insert default values in case info is not provided in the adv data (common)
     result.insert("long_device_name".to_string(), "Unknown".to_string());
@@ -134,7 +136,7 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
     result.insert("company_id".to_string(), "-1".to_string());
     result.insert("power_level".to_string(), "-1".to_string());
 
-    // check the values for 'indicators'
+    // check the values for 'indicators' that describe the data to follow
     while index < advertising_data.len() {
         let length: usize = advertising_data[index] as usize;
         if length == 0 {
@@ -144,7 +146,11 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
         let ad_type: u8 = advertising_data[index + 1];
         let ad_data: &[u8] = &advertising_data[index + 2..index + length + 1];
 
+        // keep note that little endian is used
         match ad_type {
+            0x01 => {
+                // Flags - just ignore for now.
+            }
             0x09 => {
                 // Complete Local Name
                 if let Ok(name) = String::from_utf8(ad_data.to_vec()) {
@@ -168,12 +174,34 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
                 // TX Power Level
                 result.insert("power_level".to_string(), (ad_data[0] as i8).to_string());
             }
+            0x02 | 0x03 => {
+                // Incomplete or Complete List of 16-bit UUIDs
+                for chunk in ad_data.chunks_exact(2) {
+                    if let [b1, b2] = chunk {
+                        let uuid: String = format!("{:04X}", (*b2 as u16) << 8 | (*b1 as u16));
+                        uuid_list.push(uuid);
+                    }
+                }
+            }
+            0x06 | 0x07 => {
+                // Incomplete or Complete List of 128-bit UUIDs
+                for chunk in ad_data.chunks_exact(16) {
+                    let uuid: String = chunk.iter().rev().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join("");
+                    uuid_list.push(uuid);
+                }
+            }
             _ => {
                 // Other data types can be handled here
             }
         }
 
         index += length + 1;
+    }
+
+    if uuid_list.len() == 0{
+        result.insert("uuids".to_string(), "None".to_string());
+    } else {
+        result.insert("uuids".to_string(), uuid_list.join(", "));
     }
 
     result
@@ -261,6 +289,7 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
     let mut company_id: i32 = -1;
     let mut long_device_name: String = "Unknown".to_string();
     let mut short_device_name: String = "Unknown".to_string();
+    let mut uuids: String = "None".to_string();
     if adv_data != "" {
         let hex_adv_data: Vec<u8> = adv_data
             .split(',')
@@ -276,6 +305,7 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
         long_device_name = parsed_adv_data["long_device_name"].to_string();
         short_device_name = parsed_adv_data["short_device_name"].to_string();
         company_id = parsed_adv_data["company_id"].parse::<i32>().ok().unwrap_or(-1);
+        uuids = parsed_adv_data["uuids"].to_string();
     } 
 
     let mut oui: String = "Unknown".to_string();
@@ -294,7 +324,8 @@ fn parse_ble_packet(input: &str) -> BLEPacket {
         power_level,
         oui,
         long_device_name,
-        short_device_name
+        short_device_name,
+        uuids
     }
 
 }

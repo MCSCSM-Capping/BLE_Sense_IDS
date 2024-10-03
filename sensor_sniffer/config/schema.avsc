@@ -13,6 +13,7 @@
     {"name": "power_level", "type": "int", "_comment": "Power level of the packet"},
     {"name": "oui", "type": "string", "_comment": "Org/Manufacturer from MAC address"},
     {"name": "long_device_name", "type": "string", "_comment": "Device's chosen name"},
-    {"name": "short_device_name", "type": "string", "_comment": "Device's shortened name"}
+    {"name": "short_device_name", "type": "string", "_comment": "Device's shortened name"},
+    {"name": "uuids", "type": "string", "_comment": "List of the device's service profiles"}
   ]
 }
