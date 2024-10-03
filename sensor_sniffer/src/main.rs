@@ -381,7 +381,7 @@ fn get_interface() -> String {
             return parts[1].to_string(); // port num is the second part (ex. ports    COM3)
         }
     }
-    panic!("No valid interface found.");
+    panic!("No valid interface found. Make sure the sniffer is plugged in & receiving ample power.");
 }
 
 fn main() {
