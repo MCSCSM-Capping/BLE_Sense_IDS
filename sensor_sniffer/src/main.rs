@@ -23,6 +23,8 @@ static SERIAL_ID: OnceLock<u32> = OnceLock::new();
 static PACKET_BUFFER_SIZE: OnceLock<i32> = OnceLock::new();
 static API_ENDPOINT: OnceLock<String> = OnceLock::new();
 static HEARTBEAT_FREQ: OnceLock<u32> = OnceLock::new();
+static LOGGING: OnceLock<bool> = OnceLock::new();
+static PCAPNG: OnceLock<bool> = OnceLock::new();
 static AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
 static OUI_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
 static INTERFACE: OnceLock<String> = OnceLock::new();
@@ -86,6 +88,14 @@ fn load_config() {
         .set(map["settings"]["heartbeat_freq"].clone().unwrap().parse::<u32>().unwrap())
         .unwrap();
 
+    LOGGING
+        .set(map["settings"]["logging"].clone().unwrap().parse::<bool>().unwrap())
+        .unwrap();
+
+    PCAPNG
+        .set(map["settings"]["pcapng"].clone().unwrap().parse::<bool>().unwrap())
+        .unwrap();
+
     // load the avro schema into a schema obj for serialization
     let mut schema_file: File = File::open(AVRO_SCHEMA_PATH).expect("Unable to open avro schema file");
     let mut schema_str: String = String::new();
@@ -109,10 +119,13 @@ fn load_config() {
 
 // Starts the NRFutil ble-sniffer tool for capturing BLE packets
 fn start_nrf_sniffer() -> Child {
-    let pcapng_redirect: &str = if cfg!(target_os = "windows") {
-        "NUL" // Windows
+    let pcapng_redirect: &str;
+    if *PCAPNG.get().unwrap() {
+        pcapng_redirect = "sensor_capture.pcapng";
+    } else if cfg!(target_os = "windows") {
+        pcapng_redirect = "NUL"; // Windows
     } else {
-        "/dev/null" // Linux/macOS
+        pcapng_redirect = "/dev/null"; // Linux/macOS
     };
 
     let sniffer: Child = Command::new("nrfutil")
@@ -396,8 +409,10 @@ fn parse_offload(running: Arc<AtomicBool>) {
                 if line.contains("Parsed packet") {
                     let parsed_ble_packet: BLEPacket = parse_ble_packet(&line); 
                     let encoded_packet: Vec<u8> = encode_avro(parsed_ble_packet.clone());
-                    println!("\n\n{}", line);
-                    println!("{:#?}", parsed_ble_packet);
+                    if *LOGGING.get().unwrap() {
+                        println!("\n\n{}", line);
+                        println!("{:#?}", parsed_ble_packet);
+                    }
                     // println!("{:?}", encoded_packet);
                     packet_queue.push_back(encoded_packet);
                     // println!("Queue Size: {}", queue.len());
