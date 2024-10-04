@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
+
 <div class="container "> <!--Left side container-->
-    <div class="row col-md-4 custBord">
-        <div class=" ">
-            <h1>Alert box</h1>
-            <p>This is some text.</p>
+    <div class="row col-md-4">
+        <div class="container">
+            <canvas id="attacksByDate"></canvas>
+            <button id="test" type="button" class="btn btn-primary btn-lg">
+            Test
+            </button>
         </div>
     </div>
 </div>
@@ -74,4 +77,10 @@
         </div>
     </div>
 </div>
+
+
+<script>
+    
+    
+</script>
 {% endblock %}

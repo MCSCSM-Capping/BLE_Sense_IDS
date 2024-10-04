@@ -38,9 +38,8 @@ class AddSensor(View):
         #new_sensor.save()
         #return HttpResponse("Add the scanner")
 
-
 def dashboard(request: HttpRequest) -> HttpResponse:
 
-    context = {"groups": Group.objects.all(), "sensors": Scanner.objects.all()}
+    context = {"groups": Group.objects.all(), "sensors": Scanner.objects.all(), "attacks": attacks}
 
     return render(request, "dashboard.html", context=context)
