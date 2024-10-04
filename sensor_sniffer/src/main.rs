@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use reqwest::blocking::Client;
 use std::collections::VecDeque;
 use std::sync::OnceLock;
@@ -23,6 +25,7 @@ static API_ENDPOINT: OnceLock<String> = OnceLock::new();
 static HEARTBEAT_FREQ: OnceLock<u32> = OnceLock::new();
 static AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
 static OUI_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
+static INTERFACE: OnceLock<String> = OnceLock::new();
 
 #[derive(Debug, Clone, serde::Serialize)]
 struct BLEPacket {
@@ -97,10 +100,15 @@ fn load_config() {
     if OUI_MAP.set(parse_oui_file(OUI_LOOKUP_PATH).unwrap()).is_err() {
         eprintln!("Failed to initialize OUI map");
     }
+
+    // auto detects what port the sniffer identified itself as
+    INTERFACE
+        .set(get_interface())
+        .unwrap();
 }
 
 // Starts the NRFutil ble-sniffer tool for capturing BLE packets
-fn start_nrf_sniffer(interface: &String) -> Child {
+fn start_nrf_sniffer() -> Child {
     let pcapng_redirect: &str = if cfg!(target_os = "windows") {
         "NUL" // Windows
     } else {
@@ -112,9 +120,9 @@ fn start_nrf_sniffer(interface: &String) -> Child {
             "ble-sniffer",
             "sniff", // call sniffer
             "--port",
-            interface,             // sniff on interface we detected it on
-            "--log-output=stdout", // send logs to stdout
-            "--json",              // so output is formatted
+            &INTERFACE.get().unwrap(),  // sniff on interface we detected it on
+            "--log-output=stdout",      // send logs to stdout
+            "--json",                   // so output is formatted
             "--log-level",
             "debug", // so we can see packets in stdout
             "--output-pcap-file",
@@ -372,9 +380,9 @@ fn offload_to_api(queue: &mut VecDeque<Vec<u8>>) {
 }
 
 // constantly take in the output of nrfutil. stop with an interrupt. manage api sending.
-fn parse_offload(running: Arc<AtomicBool>, interface: &String) {
+fn parse_offload(running: Arc<AtomicBool>) {
     let mut packet_queue: VecDeque<Vec<u8>> = VecDeque::new(); // queue to hold data
-    let mut sniffer: Child = start_nrf_sniffer(interface); // start sniffer
+    let mut sniffer: Child = start_nrf_sniffer(); // start sniffer
 
     // we do this loop forever (or until interrupt)
     while running.load(Ordering::SeqCst) {
@@ -429,9 +437,7 @@ fn main() {
     load_config();
 
     println!("\nStarting Sensor (Serial: {})!\n", SERIAL_ID.get().unwrap());
-    // auto detects what port the sniffer identified itself as
-    let interface: String = get_interface();
-    println!("\nNRF Dongle detected on port: {}\n", interface);
+    println!("\nNRF Dongle detected on port: {}\n", INTERFACE.get().unwrap());
 
     // atomic boolean to track if the program should stop
     let running: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
@@ -446,7 +452,7 @@ fn main() {
     }
 
     // capture packets, parse them, and periodically send to api
-    parse_offload(running.clone(), &interface);
+    parse_offload(running.clone());
 
     println!("\nSensor shut down.\n");
 }
