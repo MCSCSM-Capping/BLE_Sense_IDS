@@ -89,11 +89,11 @@ fn load_config() {
         .unwrap();
 
     LOGGING
-        .set(map["settings"]["logging"].clone().unwrap().parse::<bool>().unwrap())
+        .set(map["settings"]["logging"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
         .unwrap();
 
     PCAPNG
-        .set(map["settings"]["pcapng"].clone().unwrap().parse::<bool>().unwrap())
+        .set(map["settings"]["pcapng"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
         .unwrap();
 
     // load the avro schema into a schema obj for serialization

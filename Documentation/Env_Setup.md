@@ -16,3 +16,12 @@ This document shows how to set up the environment to run the sensor locally.
 3. Once you are on the correct branch, cd into Sensor_Sniffer.
 4. `cargo build ` will install all dependencies. This process should succeed.
 
+
+
+nrfutil.exe https://www.nordicsemi.com/Products/Development-tools/nRF-Util/Download#infotabs
+SEGGER https://www.segger.com/downloads/jlink/#J-LinkSoftwareAndDocumentationPack
+
+nrfutil search
+nrfutil install device ble-sniffer
+
+nrfutil device-list to confirm working
