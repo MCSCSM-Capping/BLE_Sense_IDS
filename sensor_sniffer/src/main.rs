@@ -101,6 +101,12 @@ fn load_config() {
 
 // Starts the NRFutil ble-sniffer tool for capturing BLE packets
 fn start_nrf_sniffer(interface: &String) -> Child {
+    let pcapng_redirect: &str = if cfg!(target_os = "windows") {
+        "NUL" // Windows
+    } else {
+        "/dev/null" // Linux/macOS
+    };
+
     let sniffer: Child = Command::new("nrfutil")
         .args(&[
             "ble-sniffer",
@@ -112,7 +118,7 @@ fn start_nrf_sniffer(interface: &String) -> Child {
             "--log-level",
             "debug", // so we can see packets in stdout
             "--output-pcap-file",
-            "NUL", // trick nrf into running but not creating its pcapng
+            pcapng_redirect, // trick nrf into running but not creating its pcapng
         ])
         .stdout(Stdio::piped()) // pipe stdout so rust can capture and process it
         .spawn() // spawn the process
