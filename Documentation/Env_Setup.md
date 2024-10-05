@@ -16,12 +16,26 @@ This document shows how to set up the environment to run the sensor locally.
 3. Once you are on the correct branch, cd into Sensor_Sniffer.
 4. `cargo build ` will install all dependencies. This process should succeed.
 
+### Set up the NRF Sniffer
+Additional documentation can be found on [their site](https://docs.nordicsemi.com/bundle/nrfutil/page/README.html).
+1. Download the nrfutil executable from [their site](https://www.nordicsemi.com/Products/Development-tools/nRF-Util/Download#infotabs). Put this executable in your system path or `chmod +x nrfutil`.
+2. Download [SEGGER j-link](https://www.segger.com/downloads/jlink/#J-LinkSoftwareAndDocumentationPack) and follow the defaults when running the installer. Select "Install legacy USB Driver just in case. 
+   #### Windows
+   1.  Install [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#visual-studio-2015-2017-2019-and-2022).
+   1. Install [nrf-device-lib driver](https://github.com/NordicSemiconductor/pc-nrfconnect-launcher/blob/main/build/drivers/nrf-device-lib-driver-installer.exe)
+   #### Linux/Mac
+   1. `sudo apt install libusb-1.0-0`
+   1. Download [nrf-udev](https://github.com/NordicSemiconductor/nrf-udevsudo), then `dpkg -i nrf-udev_1.0.1-all.deb`
+1. nrfutil comes bare bones on install. We will get the additional functionality we need.
+   1. `nrfutil self-upgrade`
+   2. `nrfutil search` to see available tools to install
+   3. `nrfutil install device ble-sniffer` to install the tools we are going to use
+   4. `nrfutil device-list` will confirm it is all working and should display the port of your sniffer (granted it is connected).
+
+### Running the sensor
+1. `Cargo run` will start the sniffer.
+2. The config.ini file (config/config.ini) contains settings for the sniffer to use. Alter this file to change the configuration. For example, if you want a pcapng capture file to be made, change 'PCAPNG' to 'TRUE'. By default, the sensor will print the packets it captures to the console.  
 
 
-nrfutil.exe https://www.nordicsemi.com/Products/Development-tools/nRF-Util/Download#infotabs
-SEGGER https://www.segger.com/downloads/jlink/#J-LinkSoftwareAndDocumentationPack
 
-nrfutil search
-nrfutil install device ble-sniffer
 
-nrfutil device-list to confirm working
