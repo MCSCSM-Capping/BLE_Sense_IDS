@@ -20,5 +20,5 @@ This document describes how the sensor works.
    
 ### Parsing Packets
 1. First, we use regular expressions to extract specific patterns and capture groups from the log string we got from nrfutil. For most of the data, this is simple.
-2. Advertising data takes an extra step. We use regex to get the hex data (given to us in decimal for some reason). 
+2. Advertising data takes an extra step. We use regex to get the hex data (given to us in decimal for some reason). Then, we iterate though it and attempt to extract data from it based on hex indicators. (For example, if we see a 0xFF in a certain position, company ID follows).
 
