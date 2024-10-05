@@ -3,7 +3,21 @@ from django.shortcuts import render
 from client.models import *
 from django.views import View
 from dataclasses import dataclass
+from django.http import JsonResponse
 
+def fetch_data(request):
+
+    group_data = Group.objects.all().values()
+    scanner_data = Scanner.objects.all().values()
+    packet_data = Packet.objects.all().values()
+
+    group_list  = list(group_data)
+    scanner_list = list(scanner_data)
+    packet_list = list(packet_data)
+
+    data = {'groups': group_list, 'scanner': scanner_list, 'packets': packet_list}
+
+    return JsonResponse(data, safe=False)
 
 
 def groups(request: HttpRequest) -> HttpResponse:
@@ -40,6 +54,6 @@ class AddSensor(View):
 
 def dashboard(request: HttpRequest) -> HttpResponse:
 
-    context = {"groups": Group.objects.all(), "sensors": Scanner.objects.all(), "attacks": attacks}
+    context = {"groups": Group.objects.all(), "sensors": Scanner.objects.all()}
 
     return render(request, "dashboard.html", context=context)

@@ -17,7 +17,8 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from client.views import groups, add_group, AddSensor, dashboard, activity
+from client.views import groups, add_group, AddSensor, dashboard, activity, fetch_data
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -26,4 +27,5 @@ urlpatterns = [
     path("addSensor/", AddSensor.as_view(), name="add_sensor"),
     path("dashboard/", dashboard, name="dashboard"),
     path("activity/<int:group_pk>", activity, name="activity"),
+    path("api/fetch-data/", fetch_data, name='fatch_data'),
 ]

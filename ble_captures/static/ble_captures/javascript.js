@@ -4,6 +4,25 @@ function staticTest(){
 
 document.getElementById("test").addEventListener("click",staticTest);
 
+document.addEventListener('DOMContentLoaded', function(){
+
+    const endpoint = '/api/fetch-data';
+
+    fetch(endpoint)
+        .then(response => {
+            if(!response.ok){
+                throw new Error('Netowrk response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(data);
+        })
+        .catch(error => {
+            console.error('issue with fetch operation',error);
+        });
+});
+
 /*
 const labels = ['Monaday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const data = {
