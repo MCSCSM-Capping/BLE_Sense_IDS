@@ -17,10 +17,14 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from client.views import groups, add_group, AddSensor, dashboard, activity
+from client.views import *
 
 urlpatterns = [
+    path("", home, name="home"),
     path("admin/", admin.site.urls),
+    path("login/", Login.as_view(), name="login"),
+    path("register/", Register.as_view(), name="register"),
+    path("logout_user/", logout_user, name="logout_user"),
     path("groups/", groups, name="groups"),
     path("addGroup/", add_group, name="add_group"),
     path("addSensor/", AddSensor.as_view(), name="add_sensor"),
