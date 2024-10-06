@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+    <div class="col-md-12" style="height: 60px;"></div>
+    </div>
+</div>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-2"></div>
+        <div class="col-md-4">
+            <h2>Sign up</h2>
+            <form action="{% url "register" %}" method="POST">
+                {% csrf_token %}
+                <div class="form-outline">
+                    <input type="email" placeholder="John@gmail.com" id="email" name="email" class="form-control" required>
+                    <label class="form-label" for="email">Email Address</label>
+                </div>
+            
+                <div class="form-outline">
+                    <input type="password" id="password1" name="password1" class="form-control" required>
+                    <label class="form-label" for="password1">Password</label>
+                 </div>
+                <div class="form-outline">
+                    <input type="password" id="password2" name="password2" class="form-control" required>
+                    <label class="form-label" for="password2">Confirm Password</label>
+                </div>
+                <button class="btn btn-secondary" type="submit">Register</button>
+            </form>
+        </div>
+        <div class="col-md-4"></div>
+        <div class="col-md-2"></div>
+    </div>
+</div>
+{% endblock %}
