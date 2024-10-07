@@ -1,3 +1,4 @@
+window.bootstrap = require("bootstrap")
 function staticTest(){
     alert("the static folder is set up properly");
 }

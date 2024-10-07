@@ -1,0 +1,17 @@
+{% load static%}
+<div role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false" class="toast fade show">
+    <script>bootstrap.Toast.getOrCreateInstance(me()).show()</script>
+    <div class="toast-header">
+        {% if message.tags == "error" %}
+        <img src="{% static 'assets/error.svg' %}" width="25px" class="me-2" alt="Error">
+        {% else %}
+        <img src="{% static 'assets/success.svg' %}" width="25px" class="me-2" alt="Success">
+        {% endif %}
+        <strong class="me-auto">BLE Tracker</strong>
+        <small class="text-body-secondary"></small>
+        <button type="button" data-bs-dismiss="toast" aria-label="Close" class="btn-close"></button>
+    </div>
+    <div class="toast-body">
+        <div>{{ message }}</div>
+    </div>
+</div>
