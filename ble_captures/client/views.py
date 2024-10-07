@@ -11,17 +11,17 @@ from django.core.exceptions import ValidationError
 from django.contrib import messages
 from django.contrib.auth.models import User
 
-def fetch_data(request):
 
+def fetch_data(request):
     group_data = Group.objects.all().values()
     scanner_data = Scanner.objects.all().values()
     packet_data = Packet.objects.all().values()
 
-    group_list  = list(group_data)
+    group_list = list(group_data)
     scanner_list = list(scanner_data)
     packet_list = list(packet_data)
 
-    data = {'groups': group_list, 'scanner': scanner_list, 'packets': packet_list}
+    data = {"groups": group_list, "scanner": scanner_list, "packets": packet_list}
 
     return JsonResponse(data, safe=False)
 
@@ -84,7 +84,7 @@ class Register(View):
         try:
             validate_password(password1)
         except ValidationError as err:
-            messages.error(request, err.message)
+            messages.error(request, "\n".join(err.messages))
             return render(request, "register.html")
 
         if not (password1 == password2):
