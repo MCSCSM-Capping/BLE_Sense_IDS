@@ -30,4 +30,5 @@ urlpatterns = [
     path("addSensor/", AddSensor.as_view(), name="add_sensor"),
     path("dashboard/", dashboard, name="dashboard"),
     path("activity/<int:group_pk>", activity, name="activity"),
+    path("api/fetch-data/", fetch_data, name='fatch_data'),
 ]

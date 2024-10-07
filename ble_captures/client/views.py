@@ -3,12 +3,27 @@ from django.shortcuts import redirect, render
 from client.models import *
 from django.views import View
 from dataclasses import dataclass
+from django.http import JsonResponse
 from django.core.validators import EmailValidator
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import ValidationError
 from django.contrib import messages
 from django.contrib.auth.models import User
+
+def fetch_data(request):
+
+    group_data = Group.objects.all().values()
+    scanner_data = Scanner.objects.all().values()
+    packet_data = Packet.objects.all().values()
+
+    group_list  = list(group_data)
+    scanner_list = list(scanner_data)
+    packet_list = list(packet_data)
+
+    data = {'groups': group_list, 'scanner': scanner_list, 'packets': packet_list}
+
+    return JsonResponse(data, safe=False)
 
 
 def groups(request: HttpRequest) -> HttpResponse:

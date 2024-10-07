@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 # ```
 # User.objects.all()
 # ```
+
 from dataclasses import dataclass
 from datetime import date, timedelta
 
