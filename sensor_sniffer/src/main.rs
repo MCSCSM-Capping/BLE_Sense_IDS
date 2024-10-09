@@ -1,17 +1,21 @@
 #![allow(unused_imports)]
 
 use reqwest::blocking::Client;
-use std::collections::VecDeque;
-use std::sync::OnceLock;
-use std::io::{BufRead, BufReader, Read, Result};
-use std::fs::File;
-use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::{
+    collections::VecDeque,
+    sync::OnceLock,
+    io::{BufRead, BufReader, Read, Result},
+    fs::File,
+    process::{Child, Command, Stdio},
+    sync::atomic::{AtomicBool, Ordering},
+    sync::{Arc, Mutex},
+    collections::HashMap,
+    time::Duration,
+    thread,
+};
 use regex::Regex;
 use apache_avro::{Schema, Writer};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 extern crate hex;
 #[macro_use]
 extern crate ini;
@@ -22,7 +26,7 @@ const OUI_LOOKUP_PATH: &str = "./config/oui.txt";
 static SERIAL_ID: OnceLock<u32> = OnceLock::new();
 static PACKET_BUFFER_SIZE: OnceLock<i32> = OnceLock::new();
 static API_ENDPOINT: OnceLock<String> = OnceLock::new();
-static HEARTBEAT_FREQ: OnceLock<u32> = OnceLock::new();
+static HEARTBEAT_FREQ: OnceLock<u64> = OnceLock::new();
 static LOGGING: OnceLock<bool> = OnceLock::new();
 static PCAPNG: OnceLock<bool> = OnceLock::new();
 static AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
@@ -85,7 +89,7 @@ fn load_config() {
         .unwrap();
 
     HEARTBEAT_FREQ
-        .set(map["settings"]["heartbeat_freq"].clone().unwrap().parse::<u32>().unwrap())
+        .set(map["settings"]["heartbeat_freq"].clone().unwrap().parse::<u64>().unwrap())
         .unwrap();
 
     LOGGING
@@ -367,13 +371,13 @@ fn encode_avro(packet: BLEPacket) -> Vec<u8> {
 }
 
 // release encoded packets to the api
-fn offload_to_api(queue: &mut VecDeque<Vec<u8>>) {
+fn offload_to_api(queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
     println!("Offloading to API!");
 
     // create object to offload via API - its the first PACKET_BUFFER_SIZE packets of the queue
     let mut data_to_send: Vec<Vec<u8>> = Vec::new();
     for _ in 0..*PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
-        if let Some(item) = queue.pop_front() {
+        if let Some(item) = queue.lock().unwrap().pop_front() {
             data_to_send.push(item);
         }
     }
@@ -393,8 +397,7 @@ fn offload_to_api(queue: &mut VecDeque<Vec<u8>>) {
 }
 
 // constantly take in the output of nrfutil. stop with an interrupt. manage api sending.
-fn parse_offload(running: Arc<AtomicBool>) {
-    let mut packet_queue: VecDeque<Vec<u8>> = VecDeque::new(); // queue to hold data
+fn parse_offload(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
     let mut sniffer: Child = start_nrf_sniffer(); // start sniffer
 
     // we do this loop forever (or until interrupt)
@@ -414,12 +417,12 @@ fn parse_offload(running: Arc<AtomicBool>) {
                         println!("{:#?}", parsed_ble_packet);
                     }
                     // println!("{:?}", encoded_packet);
-                    packet_queue.push_back(encoded_packet);
+                    packet_queue.lock().unwrap().push_back(encoded_packet);
                     // println!("Queue Size: {}", queue.len());
                 }
 
-                if packet_queue.len() >= *PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
-                    offload_to_api(&mut packet_queue); // by reference so offload can empty queue FIFO
+                if packet_queue.lock().unwrap().len() >= *PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
+                    offload_to_api(packet_queue.clone()); // by reference so offload can empty queue FIFO
                 }
             }
         }
@@ -447,6 +450,14 @@ fn get_interface() -> String {
     panic!("No valid interface found. Make sure the sniffer is plugged in & receiving ample power.");
 }
 
+fn heartbeat(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
+    while running.load(Ordering::SeqCst) {
+        let queue_len: usize = packet_queue.lock().unwrap().len();
+        println!("Queue length: {}", queue_len);
+        thread::sleep(Duration::from_secs(*HEARTBEAT_FREQ.get().unwrap()));
+    }
+}
+
 fn main() {
     println!("\nLoading Config...\n");
     load_config();
@@ -466,8 +477,16 @@ fn main() {
         .expect("Error setting Ctrl-C handler");
     }
 
+    let packet_queue: Arc<Mutex<VecDeque<Vec<u8>>>> = Arc::new(Mutex::new(VecDeque::<Vec<u8>>::new()));
+   
+    let queue_clone: Arc<Mutex<VecDeque<Vec<u8>>>> = packet_queue.clone();
+    let running_clone_hb: Arc<AtomicBool> = running.clone();
+    thread::spawn(move || {
+        heartbeat(running_clone_hb, queue_clone);
+    });
+
     // capture packets, parse them, and periodically send to api
-    parse_offload(running.clone());
+    parse_offload(running.clone(), packet_queue);
 
     println!("\nSensor shut down.\n");
 }
