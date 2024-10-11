@@ -47,6 +47,10 @@ pub fn offload_to_api(queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
 }
 
 pub fn send_heartbeat(__information: SystemInfo) {
+    // JSON will likely be fine here, no encoding probably needed
     let __id: u32 = *SERIAL_ID.get().unwrap();
+    
+    let __client: Client = Client::new();
+
     println!("{} Sent Heartbeat Message to endpoint: {}", LOG, *HB_API_ENDPOINT.get().unwrap());
 }

@@ -38,20 +38,17 @@ fn gather_system_info(sys: &mut System, packet_queue_length: i32) -> SystemInfo 
     let total_swap: f32 = sys.total_swap() as f32 / 1_073_741_824.0;
     let used_swap: f32 = sys.used_swap() as f32 / 1_073_741_824.0;
 
-    // Gather CPU usage
     let total_cpu_usage: f32 = sys.cpus()
         .iter()
         .map(|cpu| cpu.cpu_usage()) // Sum CPU usage for each core
         .sum::<f32>() / sys.cpus().len() as f32; // Calculate average
 
-    // Gather disk info
     let disks: Disks = Disks::new_with_refreshed_list();
     let disk_info = disks
         .iter()
         .map(|disk| format!("{:?}", disk)) // Convert disk information to a string
         .collect();
 
-    // Gather network info
     let networks: Networks = Networks::new_with_refreshed_list();
     let network_info = networks
         .iter()
