@@ -14,7 +14,8 @@ pub const AVRO_SCHEMA_PATH: &str = "./config/schema.avsc";
 pub const OUI_LOOKUP_PATH: &str = "./config/oui.txt";
 pub static SERIAL_ID: OnceLock<u32> = OnceLock::new();
 pub static PACKET_BUFFER_SIZE: OnceLock<i32> = OnceLock::new();
-pub static API_ENDPOINT: OnceLock<String> = OnceLock::new();
+pub static PACKET_API_ENDPOINT: OnceLock<String> = OnceLock::new();
+pub static HB_API_ENDPOINT: OnceLock<String> = OnceLock::new();
 pub static HEARTBEAT_FREQ: OnceLock<u64> = OnceLock::new();
 pub static LOGGING: OnceLock<bool> = OnceLock::new();
 pub static PCAPNG: OnceLock<bool> = OnceLock::new();
@@ -95,8 +96,12 @@ pub fn load_config() {
         .set(map["settings"]["packet_buffer_size"].clone().unwrap().parse::<i32>().unwrap())
         .unwrap();
 
-    API_ENDPOINT
-        .set(map["settings"]["api_endpoint"].clone().unwrap())
+    PACKET_API_ENDPOINT
+        .set(map["settings"]["packet_api_endpoint"].clone().unwrap())
+        .unwrap();
+
+    HB_API_ENDPOINT
+        .set(map["settings"]["heartbeat_api_endpoint"].clone().unwrap())
         .unwrap();
 
     HEARTBEAT_FREQ

@@ -4,13 +4,17 @@ use std::{
 };
 use apache_avro::Writer;
 use reqwest::blocking::Client;
-use crate::config;
+use crate::config::{
+    PACKET_BUFFER_SIZE, AVRO_SCHEMA, SERIAL_ID,
+    PACKET_API_ENDPOINT, HB_API_ENDPOINT, BLEPacket,
+};
+use crate::heartbeat::SystemInfo;
 
 const LOG: &str = "API::LOG:";
 
 // use the schema to encode/serialize a BLEPacket to avro
-pub fn encode_avro(packet: config::BLEPacket) -> Vec<u8> {
-    let mut writer: Writer<'_, Vec<u8>> = Writer::new(&config::AVRO_SCHEMA.get().unwrap(), Vec::new());
+pub fn encode_avro(packet: BLEPacket) -> Vec<u8> {
+    let mut writer: Writer<'_, Vec<u8>> = Writer::new(&AVRO_SCHEMA.get().unwrap(), Vec::new());
     writer.append_ser(packet).expect("Unable to serialize data");
     let encoded_data: Vec<u8> = writer.into_inner().expect("Unable to get encoded data");
 
@@ -21,7 +25,7 @@ pub fn encode_avro(packet: config::BLEPacket) -> Vec<u8> {
 pub fn offload_to_api(queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
     // create object to offload via API - its the first PACKET_BUFFER_SIZE packets of the queue
     let mut data_to_send: Vec<Vec<u8>> = Vec::new();
-    for _ in 0..*config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
+    for _ in 0..*PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
         if let Some(item) = queue.lock().unwrap().pop_front() {
             data_to_send.push(item);
         }
@@ -39,9 +43,10 @@ pub fn offload_to_api(queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
     //     Ok(resp) => println!("File sent successfully: {}, Response: {:?}", file_name, resp),
     //     Err(err) => eprintln!("Failed to send file: {}, Error: {}", file_name, err),
     // }
-    println!("{} Offloaded {} items from queue to endpoint.", LOG, config::PACKET_BUFFER_SIZE.get().unwrap());
+    println!("{} Offloaded {} items from queue to endpoint {}.", LOG, PACKET_BUFFER_SIZE.get().unwrap(), *PACKET_API_ENDPOINT.get().unwrap());
 }
 
-pub fn send_heartbeat(__message: &str) {
-    println!("{} Sent Heartbeat Message.", LOG);
+pub fn send_heartbeat(__information: SystemInfo) {
+    let __id: u32 = *SERIAL_ID.get().unwrap();
+    println!("{} Sent Heartbeat Message to endpoint: {}", LOG, *HB_API_ENDPOINT.get().unwrap());
 }

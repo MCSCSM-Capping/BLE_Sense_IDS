@@ -10,6 +10,7 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
+use sysinfo::System;
 extern crate hex;
 #[macro_use]
 extern crate ini;
@@ -105,8 +106,9 @@ fn main() {
    
     let queue_clone: Arc<Mutex<VecDeque<Vec<u8>>>> = packet_queue.clone();
     let running_clone_4hb: Arc<AtomicBool> = running.clone();
+    let mut system = System::new_all();
     thread::spawn(move || {
-        heartbeat::heartbeat(running_clone_4hb, queue_clone, *config::HEARTBEAT_FREQ.get().unwrap());
+        heartbeat::heartbeat(running_clone_4hb, queue_clone, &mut system);
     });
 
     // capture packets, parse them, and periodically send to api

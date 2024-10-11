@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use regex::Regex;
-use crate::config;
+use crate::config::{BLEPacket, OUI_MAP};
 
 // take in a string of hex values that is the advertising payload of a BLE packet and parse it to get attributes from it
 fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String> {
@@ -98,14 +98,14 @@ fn lookup_oui(mac_address: i64) -> String {
     );
 
     // Use the map and return either the company name or "Unknown"
-    config::OUI_MAP.get()
+    OUI_MAP.get()
         .and_then(|map: &HashMap<String, String> | map.get(&oui_prefix))
         .unwrap_or(&"Unknown".to_string())
         .clone() 
 }
 
 // parse the log statement from nrfutil
-pub fn parse_ble_packet(input: &str) -> config::BLEPacket {
+pub fn parse_ble_packet(input: &str) -> BLEPacket {
     // use regex to extract the data from the log statement
     let timestamp_re: Regex = Regex::new(r"fw_timestamp:\s(\d+)").unwrap();
     let rssi_re: Regex = Regex::new(r"rssi_sample:\s([-]?\d+)").unwrap();
@@ -194,7 +194,7 @@ pub fn parse_ble_packet(input: &str) -> config::BLEPacket {
         oui = lookup_oui(advertising_address);
     } 
 
-    config::BLEPacket {
+    BLEPacket {
         timestamp,
         rssi,
         channel_index,
