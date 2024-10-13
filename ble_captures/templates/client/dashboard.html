@@ -5,7 +5,7 @@
     <!--Content here gets clipped by header bar-->
   </main><!-- End #main -->
 
-  
+
 <section class="section">
   <div clas="row">
     <h1>Dashboard</h1>
@@ -14,12 +14,14 @@
     <div class="row">
       <div class="col-lg-6 ">
 
-        <div class="card">
+        <div class="card" style="min-height: 400px">
             <div class="card-body">
                 <h5 class="card-title">Ongoing Attacks</h5>
   
                 <!-- Line Chart -->
-                <canvas id="ongoingAttacks" style="max-height: 400px;"></canvas>
+                <div id="ongoingAttacks" style="height: 300px">
+                  
+                </div>
                 
                 <!-- End Line CHart -->
             </div>
@@ -29,12 +31,12 @@
       </div>
       <div class="col-lg-6 ">
 
-        <div class="card">
+        <div class="card" style="min-height: 400px">
             <div class="card-body">
                 <h5 class="card-title">Current Devices</h5>
   
                 <!-- Line Chart -->
-                <canvas id="deviceCount" style="max-height: 400px;"></canvas>
+                <canvas id="deviceCount" style="height: 350px;"></canvas>
                 
                 <!-- End Line CHart -->
             </div>
