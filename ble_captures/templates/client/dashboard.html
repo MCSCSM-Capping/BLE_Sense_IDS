@@ -1,37 +1,80 @@
-{% extends "base.html" %}
+{% extends "base2.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
+  <main id="main" class="main">
+    <!--Content here gets clipped by header bar-->
+  </main><!-- End #main -->
+<section class="section">
+  <div clas="row">
+    <h1>Dashboard</h1>
+    <!--Add breadcrumbing here when necessary-->
+  </div>
+    <div class="row">
+      <div class="col-lg-6 ">
 
-<div class="container "> <!--Left side container-->
-    <div class="row col-md-4">
-        <div class="container">
-            <canvas id="attacksByDate"></canvas>
-            <button id="test" type="button" class="btn btn-primary btn-lg">
-            Test
-            </button>
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Ongoing Attacks</h5>
+  
+                <!-- Line Chart -->
+                <canvas id="ongoingAttacks" style="max-height: 400px;"></canvas>
+                
+                <!-- End Line CHart -->
+            </div>
+      
         </div>
-    </div>
-</div>
-<div class="container"> <!--Right side container-->
-    <div class="d-flex flex-row-reverse">
 
-        <div class="col-md-2"> 
-            <a href="addGroup.html">
-                <button id="addGroup" type="button" class="btn btn-primary btn-lg"> 
-                    Add a new Group
-                </button>
-            </a>
+      </div>
+      <div class="col-lg-6 ">
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Current Devices</h5>
+  
+                <!-- Line Chart -->
+                <canvas id="deviceCount" style="max-height: 400px;"></canvas>
+                
+                <!-- End Line CHart -->
+            </div>
+      
         </div>
-        <div class="col-md-2"> 
-            <a href="addSensor.html">
-                <button id="addSensor" type="button" class="btn btn-primary btn-lg"> 
-                    Add a new Sensor
-                </button>
-            </a>
-        </div>
+
+      </div>
     </div>
-    <div class="d-flex flex-row-reverse">
-        <div class="table-striped table-bordered col-md-7">
+  <div class="row">
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class=card-title>Top Vulnerable locations</h5>
+
+          <canvas id="vulnerableLocations" style="max-height: 400px;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class=card-title>Total Attacks</h5>
+          
+          <canvas id="totalAttacks" style="max-height: 400px;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class=card-title>Attack Trend</h5>
+          
+          <canvas id="attackTrends" style="max-height: 400px;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<div class="row">
+        <div class="table-striped table-bordered col-md-6">
             <table id="groupTbl" class="table table-striped table-hover table-responsive">
                 <thead>
                     <h3><strong>Recent Groups</strong> </h3>
@@ -54,9 +97,9 @@
                 </tbody>
             </table>
         </div>
-    </div>
-    <div class="d-flex flex-row-reverse">
-        <div class="table-striped table-bordered col-md-7">
+    
+        
+        <div class="table-striped table-bordered col-md-6">
             <table id="sensorTbl1" class="table table-striped table-hover table-responsive">
                 <thead>
                     <h3><strong>Recent Sensors</strong> </h3>
@@ -77,6 +120,7 @@
         </div>
     </div>
 </div>
+</section>
 
 
 <script>

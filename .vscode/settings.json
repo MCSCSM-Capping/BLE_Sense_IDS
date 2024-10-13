@@ -3,7 +3,9 @@
         "django-html": "html",
         "emmet.triggerExpansionOnTab": true,
         "files.associations": {"*html":"html"},
-    }
+    },
+    "djlint.showInstallError": true
 
 
+    
 }
