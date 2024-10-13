@@ -1,6 +1,9 @@
 {% extends "base2.html" %}
 {% block title %}Details{% endblock %}
 {% block content %}
+<main id="main" class="main">
+    <!--Content here gets clipped by header bar-->
+  </main><!-- End #main -->
 <!--The context given to this page by the views function is just one group. Can expand this context to whatever data is needed from DB to display graphs as well-->
 <!--Implement JS functions that can be called here to display graph. Input variables for JS functions will be passed through as template variables-->
 You are viewing the detail page for {{this_group.name}} which has {{this_group.scanners.count}} scanners.
