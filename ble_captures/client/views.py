@@ -16,6 +16,7 @@ def fetch_data(request):
     group_data = Group.objects.all().values()
     scanner_data = Scanner.objects.all().values()
     packet_data = Packet.objects.all().values()
+    
 
     group_list = list(group_data)
     scanner_list = list(scanner_data)
@@ -25,6 +26,14 @@ def fetch_data(request):
 
     return JsonResponse(data, safe=False)
 
+def attacks(request:HttpRequest) -> HttpResponse:
+    return render(request,"attacks.html")
+
+def company_settings(request:HttpRequest) -> HttpResponse:
+    return render(request,"companySettings.html")
+
+def profile(request:HttpRequest) -> HttpResponse:
+    return render(request,"profile.html")
 
 def groups(request: HttpRequest) -> HttpResponse:
     context = {"groups": Group.objects.all()}
