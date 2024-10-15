@@ -22,6 +22,7 @@ pub static PCAPNG: OnceLock<bool> = OnceLock::new();
 pub static AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
 pub static OUI_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
 pub static INTERFACE: OnceLock<String> = OnceLock::new();
+pub static TEST_MODE: OnceLock<bool> = OnceLock::new();
 
 const LOG: &str = "CONFIG::LOG:";
 
@@ -115,6 +116,11 @@ pub fn load_config() {
     PCAPNG
         .set(map["settings"]["pcapng"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
         .unwrap();
+   
+    TEST_MODE
+    .set(map["settings"]["test_mode"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
+    .unwrap();
+
     println!("\n{} INI Settings Imported...\n", LOG);
 
     // load the avro schema into a schema obj for serialization
@@ -135,9 +141,12 @@ pub fn load_config() {
         println!("\n{} OUI Lookup Parsed...\n", LOG);
     }
 
-    // auto detects what port the sniffer identified itself as
-    INTERFACE
-        .set(get_interface())
-        .unwrap();
-    println!("\n{} NRF Dongle detected on port: {}\n", LOG, INTERFACE.get().unwrap());
+    // we don't use the sniffer in test mode
+    if !*TEST_MODE.get().unwrap() {
+        // auto detects what port the sniffer identified itself as
+        INTERFACE
+            .set(get_interface())
+            .unwrap();
+        println!("\n{} NRF Dongle detected on port: {}\n", LOG, INTERFACE.get().unwrap());
+    }
 }
