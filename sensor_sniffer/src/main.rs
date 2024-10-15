@@ -88,7 +88,7 @@ fn parse_offload(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<Vec<
 }
 
 fn test_simulation(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
-    const DELAY: Duration = Duration::from_millis(100);
+    const DELAY: Duration = Duration::from_millis(10);
     const TEST_DATA_PATH: &str = "./config/test_mode_data.txt";
 
     while running.load(Ordering::SeqCst) {
@@ -117,6 +117,7 @@ fn test_simulation(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<Ve
         }
     }
 }
+
 fn main() {
     println!("\n{} Loading Config...\n", LOG);
     config::load_config();
