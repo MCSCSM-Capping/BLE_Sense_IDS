@@ -2,11 +2,9 @@ use std::{
     collections::VecDeque, sync::{Arc, Mutex},
 };
 use apache_avro::Writer;
-use tungstenite::{Message, WebSocket};
-use serde::{Deserialize, Serialize};
-use serde_json::json;
+use tungstenite::Message;
 use crate::config::{
-    PACKET_BUFFER_SIZE, AVRO_SCHEMA, SERIAL_ID, LOGGING, OFFLINE,
+    PACKET_BUFFER_SIZE, AVRO_SCHEMA, LOGGING, OFFLINE,
     PACKET_API_ENDPOINT, HB_API_ENDPOINT, BLEPacket, BACKEND_SOCKET,
 };
 use crate::heartbeat::HeartbeatMessage;
@@ -39,10 +37,25 @@ pub fn offload_to_api(queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
             .lock()
             .expect("Failed to lock the WebSocket.");
 
-        // sending as octet? 
+        // Lock the Mutex to get mutable access to the WebSocket
+        let mut socket = BACKEND_SOCKET
+            .get()
+            .expect("WebSocket not initialized.")
+            .lock()
+            .expect("Failed to lock the WebSocket.");
+
+        // might want to make this one object that has the serial ID with it and a timestamp
+
+        for packet in data_to_send {
+            socket
+                .send(Message::Binary(packet))
+                .expect("Failed to send binary packet data!");
+        } 
     }
 
-    println!("{} Offloaded {} items from queue to endpoint {}.", LOG, PACKET_BUFFER_SIZE.get().unwrap(), *PACKET_API_ENDPOINT.get().unwrap());
+    if *LOGGING.get().unwrap() {
+        println!("{} Offloaded {} items from queue to endpoint {}.", LOG, PACKET_BUFFER_SIZE.get().unwrap(), *PACKET_API_ENDPOINT.get().unwrap());
+    }
 }
 
 // deliver HB message
