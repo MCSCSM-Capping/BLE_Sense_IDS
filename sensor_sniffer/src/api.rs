@@ -1,14 +1,15 @@
 use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
+    collections::VecDeque, sync::{Arc, Mutex},
 };
 use apache_avro::Writer;
-use reqwest::blocking::Client;
+use tungstenite::{Message, WebSocket};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use crate::config::{
-    PACKET_BUFFER_SIZE, AVRO_SCHEMA, SERIAL_ID,
-    PACKET_API_ENDPOINT, HB_API_ENDPOINT, BLEPacket,
+    PACKET_BUFFER_SIZE, AVRO_SCHEMA, SERIAL_ID, LOGGING, OFFLINE,
+    PACKET_API_ENDPOINT, HB_API_ENDPOINT, BLEPacket, BACKEND_SOCKET,
 };
-use crate::heartbeat::SystemInfo;
+use crate::heartbeat::HeartbeatMessage;
 
 const LOG: &str = "API::LOG:";
 
@@ -31,26 +32,36 @@ pub fn offload_to_api(queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
         }
     }
 
-    // maybe move client creation to global so it isn't made every time this is called
-    let __client: Client = Client::new();
-    // send the dequeued packets to API
-    // let response = client.post(api_url)
-    //     .body(buffer)
-    //     .header("Content-Type", "application/octet-stream")
-    //     .send();
+    if !*OFFLINE.get().unwrap() {
+        let mut __socket = BACKEND_SOCKET
+            .get()
+            .expect("WebSocket not initialized.")
+            .lock()
+            .expect("Failed to lock the WebSocket.");
 
-    // match response {
-    //     Ok(resp) => println!("File sent successfully: {}, Response: {:?}", file_name, resp),
-    //     Err(err) => eprintln!("Failed to send file: {}, Error: {}", file_name, err),
-    // }
+        // sending as octet? 
+    }
+
     println!("{} Offloaded {} items from queue to endpoint {}.", LOG, PACKET_BUFFER_SIZE.get().unwrap(), *PACKET_API_ENDPOINT.get().unwrap());
 }
 
-pub fn send_heartbeat(__information: SystemInfo) {
-    // JSON will likely be fine here, no encoding probably needed
-    let __id: u32 = *SERIAL_ID.get().unwrap();
-    
-    let __client: Client = Client::new();
+// deliver HB message
+pub fn send_heartbeat(hb_msg: HeartbeatMessage) {
+    if !*OFFLINE.get().unwrap() {
+        let mut socket = BACKEND_SOCKET
+            .get()
+            .expect("WebSocket not initialized.")
+            .lock()
+            .expect("Failed to lock the WebSocket.");
 
-    println!("{} Sent Heartbeat Message to endpoint: {}", LOG, *HB_API_ENDPOINT.get().unwrap());
+        let json_msg: String = serde_json::to_string(&hb_msg).expect("Failed to serialize object");
+        socket
+            .send(Message::Text(json_msg))
+            .expect("Failed to send heartbeat message.");
+
+        if *LOGGING.get().unwrap() {
+            println!("{} Sent Heartbeat Message to endpoint: {}.", LOG, *HB_API_ENDPOINT.get().unwrap());
+        }
+    }
+
 }

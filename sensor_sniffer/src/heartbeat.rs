@@ -2,18 +2,27 @@ use std::{
     collections::VecDeque,
     sync::atomic::{AtomicBool, Ordering},
     sync::{Arc, Mutex},
-    time::Duration,
     thread,
+    fmt::Write,
+    time::{Duration, SystemTime, UNIX_EPOCH}
 };
 use sysinfo::{
     Disks, Networks, System,
 };
+use serde::{Deserialize, Serialize};
 use crate::api::send_heartbeat;
-use crate::config;
+use crate::config::{SERIAL_ID, HEARTBEAT_FREQ, LOGGING};
 
 const LOG: &str = "HB::LOG:";
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct HeartbeatMessage {
+    serial: u32,
+    timestamp: String,
+    body: SystemInfo,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 #[allow(dead_code)] // because we likely will never read the fields - just send it to API
 pub struct SystemInfo {
     total_memory: f32,                     // Total memory in GB
@@ -79,11 +88,23 @@ pub fn heartbeat(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<Vec<
         // println!("Queue length: {}"queue_len);
         let system_info: SystemInfo = gather_system_info(sys, queue_len);
 
-        // Print the system information for debugging (or you can use it in other ways)
-        println!("{} System Information: {:#?}", LOG, system_info);
-        send_heartbeat(system_info);
+        let time: SystemTime = SystemTime::now();
+        let duration: Duration = time.duration_since(UNIX_EPOCH).unwrap();
+        let mut datetime: String = String::new();
+        write!(&mut datetime, "{}", duration.as_secs()).unwrap();
 
-        thread::sleep(Duration::from_secs(*config::HEARTBEAT_FREQ.get().unwrap()));
+        let hb_msg: HeartbeatMessage = HeartbeatMessage {
+            serial: *SERIAL_ID.get().unwrap(),
+            timestamp: datetime,
+            body: system_info,
+        };
+
+        if *LOGGING.get().unwrap() {
+            println!("{} Heartbeat Message: {:#?}", LOG, hb_msg);
+        }
+        send_heartbeat(hb_msg);
+
+        thread::sleep(Duration::from_secs(*HEARTBEAT_FREQ.get().unwrap()));
     }
 }
 

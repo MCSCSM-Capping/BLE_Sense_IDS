@@ -1,5 +1,5 @@
 use std::{
-    sync::OnceLock,
+    sync::{Mutex, OnceLock},
     io::{BufRead, BufReader, Read, Result},
     fs::File,
     process::Command,
@@ -8,6 +8,9 @@ use std::{
 use apache_avro::Schema;
 #[allow(unused_imports)]
 use serde::Serialize; // for derive
+use tungstenite::{connect, WebSocket};
+use tungstenite::stream::MaybeTlsStream;
+use std::net::TcpStream;
 
 pub const CONFIG_PATH: &str = "./config/config.ini";
 pub const AVRO_SCHEMA_PATH: &str = "./config/schema.avsc";
@@ -23,6 +26,8 @@ pub static AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
 pub static OUI_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
 pub static INTERFACE: OnceLock<String> = OnceLock::new();
 pub static TEST_MODE: OnceLock<bool> = OnceLock::new();
+pub static BACKEND_SOCKET: OnceLock<Mutex<WebSocket<MaybeTlsStream<TcpStream>>>> = OnceLock::new();
+pub static OFFLINE: OnceLock<bool> = OnceLock::new();
 
 const LOG: &str = "CONFIG::LOG:";
 
@@ -118,8 +123,12 @@ pub fn load_config() {
         .unwrap();
    
     TEST_MODE
-    .set(map["settings"]["test_mode"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
-    .unwrap();
+        .set(map["settings"]["test_mode"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
+        .unwrap();
+
+    OFFLINE
+        .set(map["settings"]["offline"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
+        .unwrap();
 
     println!("\n{} INI Settings Imported...\n", LOG);
 
@@ -139,6 +148,15 @@ pub fn load_config() {
         eprintln!("Failed to initialize OUI map");
     } else {
         println!("\n{} OUI Lookup Parsed...\n", LOG);
+    }
+
+    if !*OFFLINE.get().unwrap() {
+        let (socket, response) = 
+            connect(&*HB_API_ENDPOINT.get().unwrap().as_str()).expect("Web Socket Conenction FAILED.");
+        println!("Connected to the server {:?}", response);
+        BACKEND_SOCKET
+            .set(Mutex::new(socket))
+            .expect("Failure to save websocket connection.");
     }
 
     // we don't use the sniffer in test mode
