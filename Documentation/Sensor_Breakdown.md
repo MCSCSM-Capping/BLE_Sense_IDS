@@ -1,3 +1,6 @@
+
+CAUTION: OUT OF DATE
+
 This document describes how the sensor works.
 
 # Sensor Documentation
