@@ -2,6 +2,7 @@ mod heartbeat;
 mod packet_parser;
 mod config;
 mod api;
+mod tester;
 use std::{
     collections::VecDeque,
     io::{BufRead, BufReader},
@@ -10,10 +11,10 @@ use std::{
     sync::{Arc, Mutex},
     thread,
     time::Duration,
-    fs::File,
 };
 use config::BLEPacket;
 use sysinfo::System;
+use tester::generate_random_packet;
 extern crate hex;
 #[macro_use]
 extern crate ini;
@@ -86,36 +87,24 @@ fn parse_offload(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEP
     // dump_queue(); if shutting down, might want to dump the queue to api first to avoid data loss?
 }
 
-// fn test_simulation(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
-//     const DELAY: Duration = Duration::from_millis(10);
-//     const TEST_DATA_PATH: &str = "./config/test_mode_data.txt";
+fn test_simulation(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
+    const DELAY: Duration = Duration::from_millis(10);
 
-//     while running.load(Ordering::SeqCst) {
-//         let test_data_file: File = File::open(TEST_DATA_PATH).unwrap();  
-//         let reader: BufReader<File> = BufReader::new(test_data_file);
+    while running.load(Ordering::SeqCst) {
+        let simulated_packet: BLEPacket = generate_random_packet();
+        if *config::LOGGING.get().unwrap() {
+            println!("\n\n{}", LOG);
+            println!("{:#?}", simulated_packet);
+        }
+        packet_queue.lock().unwrap().push_back(simulated_packet);
 
-//         // Read the file line by line (encoded packet on each line)
-//         for line in reader.lines() {
-//             let mut packet_line: String = line.unwrap();  
-//             packet_line = packet_line[1..packet_line.len()-1].to_string();
+        if packet_queue.lock().unwrap().len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
+            api::offload_to_api(packet_queue.clone()); // by reference so offload can empty queue FIFO
+        }
 
-//             // Parse the packet info into u8 vector 
-//             let encoded_packet: Vec<u8> = packet_line
-//                 .split(',')
-//                 .map(|num: &str| num.trim().parse::<u8>().unwrap())  
-//                 .collect();
-
-//             // if *config::LOGGING.get().unwrap() { println!("{:?}", encoded_packet); }  
-//             packet_queue.lock().unwrap().push_back(encoded_packet);
-
-//             if packet_queue.lock().unwrap().len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
-//                 api::offload_to_api(packet_queue.clone()); // by reference so offload can empty queue FIFO
-//             }
-
-//             thread::sleep(DELAY);  // Add a delay before the next line
-//         }
-//     }
-// }
+        thread::sleep(DELAY);  // Add a delay before adding more
+    }
+}
 
 fn main() {
     println!("\n{} Loading Config...\n", LOG);
@@ -149,7 +138,8 @@ fn main() {
         parse_offload(running.clone(), packet_queue);
     } else {
         println!("\nRunning in simulated test mode...");
-        // test_simulation(running.clone(), packet_queue);
+        test_simulation(running.clone(), packet_queue);
     }   
     println!("\n{} Sensor shut down.\n", LOG);
 }
+    

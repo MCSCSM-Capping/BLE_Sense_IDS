@@ -2,7 +2,7 @@
   "type": "record",
   "name": "BLEData",
   "fields": [
-    { "name": "timestamp", "type": "int" },
+    { "name": "timestamp", "type": "long" },
     { "name": "serial_id", "type": "int" },
     {
       "name": "packets",
