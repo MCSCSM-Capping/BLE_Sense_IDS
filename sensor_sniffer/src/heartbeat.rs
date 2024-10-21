@@ -11,7 +11,7 @@ use sysinfo::{
 };
 use serde::{Deserialize, Serialize};
 use crate::api::send_heartbeat;
-use crate::config::{SERIAL_ID, HEARTBEAT_FREQ, LOGGING};
+use crate::config::{SERIAL_ID, HEARTBEAT_FREQ, LOGGING, BLEPacket};
 
 const LOG: &str = "HB::LOG:";
 
@@ -82,7 +82,7 @@ fn gather_system_info(sys: &mut System, packet_queue_length: i32) -> SystemInfo 
     }
 }
 
-pub fn heartbeat(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<Vec<u8>>>>, sys: &mut System) {
+pub fn heartbeat(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>, sys: &mut System) {
     while running.load(Ordering::SeqCst) {
         let queue_len: i32 = packet_queue.lock().unwrap().len() as i32;
         // println!("Queue length: {}"queue_len);

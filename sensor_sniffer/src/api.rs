@@ -1,29 +1,49 @@
 use std::{
     collections::VecDeque, sync::{Arc, Mutex},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use apache_avro::Writer;
 use tungstenite::Message;
 use crate::config::{
-    PACKET_BUFFER_SIZE, AVRO_SCHEMA, LOGGING, OFFLINE,
-    PACKET_API_ENDPOINT, HB_API_ENDPOINT, BLEPacket, BACKEND_SOCKET,
+    BLEPacket, AVRO_SCHEMA, BACKEND_SOCKET, HB_API_ENDPOINT, LOGGING, OFFLINE, PACKET_API_ENDPOINT, PACKET_BUFFER_SIZE, SERIAL_ID
 };
 use crate::heartbeat::HeartbeatMessage;
 
 const LOG: &str = "API::LOG:";
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PacketDelivery {
+    pub serial_id: u32,
+    pub timestamp: u64,
+    pub packets: Vec<BLEPacket>,
+}
 
-// use the schema to encode/serialize a BLEPacket to avro
-pub fn encode_avro(packet: BLEPacket) -> Vec<u8> {
+// use the schema to encode/serialize data to avro
+pub fn encode_avro(delivery: PacketDelivery) -> Vec<u8> {
     let mut writer: Writer<'_, Vec<u8>> = Writer::new(&AVRO_SCHEMA.get().unwrap(), Vec::new());
-    writer.append_ser(packet).expect("Unable to serialize data");
+    writer.append_ser(delivery).expect("Unable to serialize data");
     let encoded_data: Vec<u8> = writer.into_inner().expect("Unable to get encoded data");
 
     encoded_data
 }
 
+fn wrap_packet_delivery(packets: Vec<BLEPacket>) -> PacketDelivery {
+    let time: SystemTime = SystemTime::now();
+    let duration: Duration = time.duration_since(UNIX_EPOCH).unwrap();
+    let timestamp: u64 = duration.as_secs();
+
+    let serial_id: u32 = *SERIAL_ID.get().unwrap();
+
+    PacketDelivery {
+        timestamp,
+        serial_id,
+        packets,
+    }
+}
+
 // release encoded packets to the api
-pub fn offload_to_api(queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
+pub fn offload_to_api(queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
     // create object to offload via API - its the first PACKET_BUFFER_SIZE packets of the queue
-    let mut data_to_send: Vec<Vec<u8>> = Vec::new();
+    let mut data_to_send: Vec<BLEPacket> = Vec::new();
     for _ in 0..*PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
         if let Some(item) = queue.lock().unwrap().pop_front() {
             data_to_send.push(item);
@@ -31,12 +51,6 @@ pub fn offload_to_api(queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
     }
 
     if !*OFFLINE.get().unwrap() {
-        let mut __socket = BACKEND_SOCKET
-            .get()
-            .expect("WebSocket not initialized.")
-            .lock()
-            .expect("Failed to lock the WebSocket.");
-
         // Lock the Mutex to get mutable access to the WebSocket
         let mut socket = BACKEND_SOCKET
             .get()
@@ -44,13 +58,12 @@ pub fn offload_to_api(queue: Arc<Mutex<VecDeque<Vec<u8>>>>) {
             .lock()
             .expect("Failed to lock the WebSocket.");
 
-        // might want to make this one object that has the serial ID with it and a timestamp
+        let delivery: PacketDelivery = wrap_packet_delivery(data_to_send);
+        let encoded_delivery: Vec<u8> = encode_avro(delivery);
 
-        for packet in data_to_send {
-            socket
-                .send(Message::Binary(packet))
-                .expect("Failed to send binary packet data!");
-        } 
+        socket
+            .send(Message::Binary(encoded_delivery))
+            .expect("Failed to send binary packet delivery!");
     }
 
     if *LOGGING.get().unwrap() {
