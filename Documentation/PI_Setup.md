@@ -1,4 +1,8 @@
-NOTE: NO LONGER RELEVANT, HOLDING UNTIL ZIMA SETUP
+# !
+
+# NOTE: NO LONGER RELEVANT, HOLDING UNTIL ZIMA SETUP
+
+# !
 
 This document shows how to set up the remote PI sensor. This was tested using PI3s from CanaKit.
 

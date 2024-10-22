@@ -32,6 +32,10 @@ Additional documentation can be found on [their site](https://docs.nordicsemi.co
    3. `nrfutil install device ble-sniffer` to install the tools we are going to use
    4. `nrfutil device-list` will confirm it is all working and should display the port of your sniffer (granted it is connected).
 
+### Setting the Configuration
+1. Open the config/config.ini file.
+1. Set the settings to match the behavior you desire. The file comments will help!
+
 ### Running the sensor
 1. `Cargo run` will start the sniffer.
 2. The config.ini file (config/config.ini) contains settings for the sniffer to use. Alter this file to change the configuration. For example, if you want a pcapng capture file to be made, change 'PCAPNG' to 'TRUE'. By default, the sensor will print the packets it captures to the console.  
