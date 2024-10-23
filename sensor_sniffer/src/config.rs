@@ -13,7 +13,8 @@ use tungstenite::stream::MaybeTlsStream;
 use std::net::TcpStream;
 
 pub const CONFIG_PATH: &str = "./config/config.ini";
-pub const AVRO_SCHEMA_PATH: &str = "./config/schema.avsc";
+pub const PACKET_AVRO_SCHEMA_PATH: &str = "./config/packet_schema.avsc";
+pub const HB_AVRO_SCHEMA_PATH: &str = "./config/hb_schema.avsc";
 pub const OUI_LOOKUP_PATH: &str = "./config/oui.txt";
 pub static SERIAL_ID: OnceLock<u32> = OnceLock::new();
 pub static PACKET_BUFFER_SIZE: OnceLock<i32> = OnceLock::new();
@@ -21,7 +22,8 @@ pub static BACKEND_WEBSOCKET_ENDPOINT: OnceLock<String> = OnceLock::new();
 pub static HEARTBEAT_FREQ: OnceLock<u64> = OnceLock::new();
 pub static LOGGING: OnceLock<bool> = OnceLock::new();
 pub static PCAPNG: OnceLock<bool> = OnceLock::new();
-pub static AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
+pub static PACKET_AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
+pub static HB_AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
 pub static OUI_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
 pub static INTERFACE: OnceLock<String> = OnceLock::new();
 pub static TEST_MODE: OnceLock<bool> = OnceLock::new();
@@ -128,15 +130,23 @@ pub fn load_config() {
     println!("\n{} INI Settings Imported...\n", LOG);
 
     // load the avro schema into a schema obj for serialization
-    let mut schema_file: File = File::open(AVRO_SCHEMA_PATH).expect("Unable to open avro schema file");
-    let mut schema_str: String = String::new();
-    schema_file.read_to_string(&mut schema_str).expect("Unable to read schema file");
-    let schema: Schema = Schema::parse_str(&schema_str).expect("Unable to parse avro schema");
-
-    AVRO_SCHEMA
-        .set(schema)
+    let mut packet_schema_file: File = File::open(PACKET_AVRO_SCHEMA_PATH).expect("Unable to open packet avro schema file");
+    let mut packet_schema_str: String = String::new();
+    packet_schema_file.read_to_string(&mut packet_schema_str).expect("Unable to read packet schema file");
+    let packet_schema: Schema = Schema::parse_str(&packet_schema_str).expect("Unable to parse packet avro schema");
+    PACKET_AVRO_SCHEMA
+        .set(packet_schema)
         .unwrap();
-    println!("\n{} Avro Schema Loaded...\n", LOG);
+    println!("\n{} Packet Avro Schema Loaded...\n", LOG);
+
+    let mut hb_schema_file: File = File::open(HB_AVRO_SCHEMA_PATH).expect("Unable to open heartbeat avro schema file");
+    let mut hb_schema_str: String = String::new();
+    hb_schema_file.read_to_string(&mut hb_schema_str).expect("Unable to read heartbeat schema file");
+    let hb_schema: Schema = Schema::parse_str(&hb_schema_str).expect("Unable to parse heartbeat avro schema");
+    HB_AVRO_SCHEMA
+        .set(hb_schema)
+        .unwrap();
+    println!("\n{} Heartbeat Avro Schema Loaded...\n", LOG);
 
     // load the OUI map so we can provide that information
     if OUI_MAP.set(parse_oui_file(OUI_LOOKUP_PATH).unwrap()).is_err() {

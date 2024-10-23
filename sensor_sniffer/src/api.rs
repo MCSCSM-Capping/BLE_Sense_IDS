@@ -5,7 +5,8 @@ use std::{
 use apache_avro::Writer;
 use tungstenite::Message;
 use crate::config::{
-    BLEPacket, AVRO_SCHEMA, BACKEND_SOCKET, BACKEND_WEBSOCKET_ENDPOINT, LOGGING, OFFLINE, PACKET_BUFFER_SIZE, SERIAL_ID
+    BLEPacket, PACKET_AVRO_SCHEMA, HB_AVRO_SCHEMA, BACKEND_SOCKET, BACKEND_WEBSOCKET_ENDPOINT, 
+    LOGGING, OFFLINE, PACKET_BUFFER_SIZE, SERIAL_ID
 };
 use crate::heartbeat::HeartbeatMessage;
 
@@ -18,13 +19,22 @@ pub struct PacketDelivery {
 }
 
 // use the schema to encode/serialize data to avro
-pub fn encode_avro(delivery: PacketDelivery) -> Vec<u8> {
-    let mut writer: Writer<'_, Vec<u8>> = Writer::new(&AVRO_SCHEMA.get().unwrap(), Vec::new());
+fn encode_to_packet_avro(delivery: PacketDelivery) -> Vec<u8> {
+    let mut writer: Writer<'_, Vec<u8>> = Writer::new(&PACKET_AVRO_SCHEMA.get().unwrap(), Vec::new());
     writer.append_ser(delivery).expect("Unable to serialize data");
     let encoded_data: Vec<u8> = writer.into_inner().expect("Unable to get encoded data");
 
     encoded_data
 }
+
+fn encode_to_hb_avro(hb: HeartbeatMessage) -> Vec<u8> {
+    let mut writer: Writer<'_, Vec<u8>> = Writer::new(&HB_AVRO_SCHEMA.get().unwrap(), Vec::new());
+    writer.append_ser(hb).expect("Unable to serialize data");
+    let encoded_data: Vec<u8> = writer.into_inner().expect("Unable to get encoded data");
+
+    encoded_data
+}
+
 
 fn wrap_packet_delivery(packets: Vec<BLEPacket>) -> PacketDelivery {
     let time: SystemTime = SystemTime::now();
@@ -59,7 +69,7 @@ pub fn offload_to_api(queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
             .expect("Failed to lock the WebSocket.");
 
         let delivery: PacketDelivery = wrap_packet_delivery(data_to_send);
-        let encoded_delivery: Vec<u8> = encode_avro(delivery);
+        let encoded_delivery: Vec<u8> = encode_to_packet_avro(delivery);
 
         socket
             .send(Message::Binary(encoded_delivery))
@@ -80,10 +90,10 @@ pub fn send_heartbeat(hb_msg: HeartbeatMessage) {
             .lock()
             .expect("Failed to lock the WebSocket.");
 
-        let json_msg: String = serde_json::to_string(&hb_msg).expect("Failed to serialize object");
+        let encoded_msg: Vec<u8> = encode_to_hb_avro(hb_msg);
         socket
-            .send(Message::Text(json_msg))
-            .expect("Failed to send heartbeat message.");
+            .send(Message::Binary(encoded_msg))
+            .expect("Failed to send binary heartbeat message.");
 
         if *LOGGING.get().unwrap() {
             println!("{} Sent Heartbeat Message to endpoint: {}.", LOG, *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
