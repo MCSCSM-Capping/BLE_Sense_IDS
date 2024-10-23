@@ -26,6 +26,14 @@ def fetch_data(request):
 
     return JsonResponse(data, safe=False)
 
+def fetch_pkt_count(request):
+    pkt_count = Packet.objects.all().count()
+
+    data = {"pkt_count": pkt_count}
+
+    return JsonResponse(data, safe= False)
+
+
 def attacks(request:HttpRequest) -> HttpResponse:
     return render(request,"attacks.html")
 
@@ -43,11 +51,6 @@ def groups(request: HttpRequest) -> HttpResponse:
 
 def add_group(request: HttpRequest) -> HttpResponse:
     return render(request, "addGroup.html")
-
-
-def home(request: HttpRequest) -> HttpResponse:
-    return render(request, "home.html")
-
 
 def activity(request: HttpRequest, group_pk) -> HttpResponse:
     context = {"this_group": Group.objects.get(pk=group_pk)}
@@ -115,7 +118,7 @@ class Register(View):
         messages.success(
             request, ("An account has been created and you are logged in.")
         )
-        return redirect("home")
+        return redirect("dashboard")
 
 
 class Login(View):
@@ -134,7 +137,7 @@ class Login(View):
             return redirect("login")
         login(request, user)
         messages.success(request, ("Login Successful"))
-        return redirect("home")
+        return redirect("dashboard")
 
 
 def logout_user(request: HttpRequest) -> HttpResponse:

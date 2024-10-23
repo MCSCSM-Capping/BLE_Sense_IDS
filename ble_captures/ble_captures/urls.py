@@ -20,7 +20,6 @@ from django.urls import path
 from client.views import *
 
 urlpatterns = [
-    path("", home, name="home"),
     path("admin/", admin.site.urls),
     path("login/", Login.as_view(), name="login"),
     path("register/", Register.as_view(), name="register"),
@@ -28,9 +27,10 @@ urlpatterns = [
     path("groups/", groups, name="groups"),
     path("addGroup/", add_group, name="add_group"),
     path("addSensor/", AddSensor.as_view(), name="add_sensor"),
-    path("dashboard/", dashboard, name="dashboard"),
+    path("", dashboard, name="dashboard"),
     path("activity/<int:group_pk>", activity, name="activity"),
-    path("api/fetch-data/", fetch_data, name='fatch_data'),
+    path("api/fetch-data/", fetch_data, name='fetch_data'),
+    path("api/fetch-pkt-count/", fetch_pkt_count, name='fetch_pkt_count'),
     path("attacks/", attacks, name="attacks"),
     path("companySettings", company_settings, name="company_settings"),
     path("profile/", profile, name="profile"),

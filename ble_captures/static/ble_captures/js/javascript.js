@@ -19,45 +19,64 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 });
 
-//Ongoing Attacks line chart
+//Current Packets Count line chart
 //
-var chartDom = document.getElementById('ongoingAttacks');
+var chartDom = document.getElementById('packetCount');
 var myChart = echarts.init(chartDom);
 var option;
 
-function randomData() {
-  now = new Date(+now + oneDay);
-  value = value + Math.random() * 21 - 10;
-  return {
-    name: now.toString(),
-    value: [
-      [now.getFullYear(), now.getMonth() + 1, now.getDate()].join('/'),
-      Math.round(value)
-    ]
-  };
+// Function to fetch packet count from API
+function fetchPacketCount() {
+  return fetch('/api/fetch-pkt-count')
+    .then(response => response.json())
+    .then(data => data.pkt_count)  
+    .catch(error => {
+      console.error('Error fetching packet count:', error);
+      return 0;  // Return 0 if there was an error
+    });
 }
+
+// Function to generate new data with timestamp and packet count from API
+function pktCount() {
+  now = new Date(+now + oneSec);  // Increment time by one second
+  return fetchPacketCount().then(packetCount => {
+    return {
+      name: now.toString(),  // Timestamp as name
+      value: [
+        now.getTime(),  // Use the timestamp in milliseconds for time axis
+        packetCount  // Packet count for Y-axis
+      ]
+    };
+  });
+}
+
+// Initialize chart data, current time, and value
 let data = [];
-let now = new Date(1997, 9, 3);
-let oneDay = 24 * 3600 * 1000;
-let value = Math.random() * 1000;
-for (var i = 0; i < 1000; i++) {
-  data.push(randomData());
-}
+let now = new Date();
+let oneSec = 1000;  // One second in milliseconds
+
+// Generate initial data
+(async function initializeData() {
+  for (var i = 0; i < 100; i++) {  // Initialize with 100 points
+    let dataPoint = await pktCount();
+    data.push(dataPoint);
+  }
+})();
+
+// Define chart options with hidden xAxis labels and custom tooltip
 option = {
+
   tooltip: {
     trigger: 'axis',
     formatter: function (params) {
       params = params[0];
-      var date = new Date(params.name);
-      return (
-        date.getDate() +
-        '/' +
-        (date.getMonth() + 1) +
-        '/' +
-        date.getFullYear() +
-        ' : ' +
-        params.value[1]
-      );
+      var date = new Date(params.value[0]);  // Convert timestamp to date
+      var hours = date.getHours().toString().padStart(2, '0');  // Format hours
+      var minutes = date.getMinutes().toString().padStart(2, '0');  // Format minutes
+      var seconds = date.getSeconds().toString().padStart(2, '0');  // Format seconds
+      var time = hours + ':' + minutes + ':' + seconds;
+      
+      return `Time: ${time} <br/> Packet Count: ${params.value[1]}`;  // Show time and packet count
     },
     axisPointer: {
       animation: false
@@ -67,6 +86,9 @@ option = {
     type: 'time',
     splitLine: {
       show: false
+    },
+    axisLabel: {
+      show: false  // Hide x-axis labels
     }
   },
   yAxis: {
@@ -78,18 +100,23 @@ option = {
   },
   series: [
     {
-      name: 'Fake Data',
+      name: 'Packet Count',
       type: 'line',
       showSymbol: false,
       data: data
     }
   ]
 };
-setInterval(function () {
-  for (var i = 0; i < 5; i++) {
-    data.shift();
-    data.push(randomData());
+
+// Update chart every 1000 milliseconds (1 second)
+setInterval(async function () {
+  for (var i = 0; i < 5; i++) {  // Shift out old data and add new data
+    data.shift();  // Remove oldest data point
+    let newData = await pktCount();
+    data.push(newData);  // Add new data from API
   }
+
+  // Update chart with the new data
   myChart.setOption({
     series: [
       {
@@ -97,59 +124,33 @@ setInterval(function () {
       }
     ]
   });
-}, 100);
+}, 1000);  // Update interval is 1000 milliseconds (1 second)
 
 option && myChart.setOption(option);
 
 
 
 
-/*
+
+//Ongoing Attacks line chart
 document.addEventListener("DOMContentLoaded", () => {
     new Chart(document.querySelector('#ongoingAttacks'), {
         type: 'line',
         data: {
             labels: ['Time 1', '2', '3', '4', '5', '6', '7'],
             datasets: [{
-                label: 'Severity level 1',
-                data: [65, 59, 80, 81, 56, 55, 40],
-                fill: false,
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
-            },
-            {
-                label: 'Severity level 2',
-                data: [50, 60, 70, 20, 60, 55, 80],
-                fill: false,
-                borderColor: 'rgb(255, 0, 0)',
-                tension: 0.1
-
-            }
-            ]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-});
-*/
-//Current Devices line chart
-document.addEventListener("DOMContentLoaded", () => {
-    new Chart(document.querySelector('#deviceCount'), {
-        type: 'line',
-        data: {
-            labels: ['Time 1', '2', '3', '4', '5', '6', '7'],
-            datasets: [{
-                label: 'count',
+                label: '1',
                 data: [200, 250, 120, 113, 209, 267, 300],
                 fill: false,
                 borderColor: 'rgb(75, 192, 192)',
                 tension: 0.1
             },
+            {label: '2',
+                data: [100, 150, 20, 13, 109, 167, 200],
+                fill: false,
+                borderColor: 'rgb(235, 232, 61)',
+                tension: 0.1
+            }   
             ]
         },
         options: {
