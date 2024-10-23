@@ -13,12 +13,12 @@ from django.contrib.auth.models import User
 from channels.generic.websocket import WebsocketConsumer
 
 
-class MyConsumer(WebsocketConsumer):
+class SendPacketsSocket(WebsocketConsumer):
     def connect(self):
         self.accept()
 
-    def disconnect(self, close_code):
+    def disconnect(self, close_code):  # pyright: ignore
         pass
 
-    def receive(self, text_data):
-        self.send(text_data)
+    def receive(self, bytes_data):  # pyright: ignore
+        print(bytes_data)
