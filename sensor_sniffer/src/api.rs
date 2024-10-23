@@ -5,7 +5,7 @@ use std::{
 use apache_avro::Writer;
 use tungstenite::Message;
 use crate::config::{
-    BLEPacket, AVRO_SCHEMA, BACKEND_SOCKET, HB_API_ENDPOINT, LOGGING, OFFLINE, PACKET_API_ENDPOINT, PACKET_BUFFER_SIZE, SERIAL_ID
+    BLEPacket, AVRO_SCHEMA, BACKEND_SOCKET, BACKEND_WEBSOCKET_ENDPOINT, LOGGING, OFFLINE, PACKET_BUFFER_SIZE, SERIAL_ID
 };
 use crate::heartbeat::HeartbeatMessage;
 
@@ -67,7 +67,7 @@ pub fn offload_to_api(queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
     }
 
     if *LOGGING.get().unwrap() {
-        println!("{} Offloaded {} items from queue to endpoint {}.", LOG, PACKET_BUFFER_SIZE.get().unwrap(), *PACKET_API_ENDPOINT.get().unwrap());
+        println!("{} Offloaded {} items from queue to endpoint {}.", LOG, PACKET_BUFFER_SIZE.get().unwrap(), *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
     }
 }
 
@@ -86,7 +86,7 @@ pub fn send_heartbeat(hb_msg: HeartbeatMessage) {
             .expect("Failed to send heartbeat message.");
 
         if *LOGGING.get().unwrap() {
-            println!("{} Sent Heartbeat Message to endpoint: {}.", LOG, *HB_API_ENDPOINT.get().unwrap());
+            println!("{} Sent Heartbeat Message to endpoint: {}.", LOG, *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
         }
     }
 
