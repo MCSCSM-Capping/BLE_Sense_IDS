@@ -31,8 +31,14 @@ pub struct SystemInfo {
     used_swap: f32,                        // Used swap memory in GB
     total_cpu_usage: f32,                  // Total CPU usage as percentage
     disk_info: Vec<String>,                // List of disk info strings
-    network_info: Vec<(String, u64, u64)>, // (Interface name, Total received, Total transmitted)
+    network_info: Vec<NetworkInfo>, // (Interface name, Total received, Total transmitted)
     packet_queue_length: i32,              // Length of packet queue
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct NetworkInfo {
+    interface_name: String,
+    total_received: u64,
+    total_transmitted: u64,
 }
 
 // Function to gather system information
@@ -58,17 +64,15 @@ fn gather_system_info(sys: &mut System, packet_queue_length: i32) -> SystemInfo 
         .map(|disk| format!("{:?}", disk)) // Convert disk information to a string
         .collect();
 
-    let networks: Networks = Networks::new_with_refreshed_list();
-    let network_info = networks
-        .iter()
-        .map(|(interface_name, data)| {
-            (
-                interface_name.clone(),
-                data.total_received(),
-                data.total_transmitted(),
-            )
-        })
-        .collect();
+        let networks: Networks = Networks::new_with_refreshed_list();
+        let network_info: Vec<NetworkInfo> = networks
+            .iter()
+            .map(|(interface_name, data)| NetworkInfo {
+                interface_name: interface_name.clone(),
+                total_received: data.total_received(),
+                total_transmitted: data.total_transmitted(),
+            })
+            .collect();
 
     SystemInfo {
         total_memory,
