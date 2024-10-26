@@ -22,6 +22,7 @@
   <link href=" {% static 'ble_captures/vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
   <link href=" {% static 'ble_captures/vendor/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet">
   <link href=" {% static 'ble_captures/vendor/simple-datatables/style.css' %}" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css" />
 
   <!-- Template Main CSS File -->
   <link href=" {% static 'ble_captures/css/style.css' %}" rel="stylesheet">
@@ -121,6 +122,13 @@
           <span>Attacks</span>
         </a>
       </li>
+      
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="{% url "devices"%}"> <!--Add templating language here-->
+          <i class="bi bi-x-octagon-fill"></i>
+          <span>Devices</span>
+        </a>
+      </li>
 
       <li class="nav-item">
         <a class="nav-link collapsed" href="{% url "groups" %}"> <!--Add templating language here-->
@@ -165,7 +173,7 @@
   <script src=" {% static 'ble_captures/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
   <script src=" {% static 'ble_captures/vendor/chart.js/chart.umd.js' %}"></script>
   <script src=" {% static 'ble_captures/vendor/echarts/echarts.min.js' %}"></script>
-  
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
   <script src=" {% static 'ble_captures/vendor/simple-datatables/simple-datatables.js' %}"></script>
 
 
