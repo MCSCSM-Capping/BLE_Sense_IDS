@@ -93,6 +93,44 @@ class Packet(models.Model):
     #   should this be time since the recording started?
     #           -- how would we even get that?
     #   should this be time since Epoch?
+    #   Couldn't this just be a date field?
     timestamp = models.IntegerField()
 
+
     scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
+
+class Device(models.Model):
+    __tablename__ = "Devices"
+    id = models.IntegerField()
+    name = models.TextField(null="Unknown")
+    oui = models.TextField(null="Unknown")
+
+class Uuid(models.Model):
+    __tablename__ = "UUIDs"
+    uuid = models.IntegerField()
+
+    device = models.ForeignKey(Device, on_delete=models.CASCADE)
+
+class User(models.Model):
+    __tablename__ = "Users"
+    id = models.IntegerField()
+    user_name = models.TextField()
+    user_password = models.TextField()
+
+class Scans(models.Model):
+    __tablename__ = "Scans"
+    scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
+    packet = models.ForeignKey(Packet, on_delete=models.CASCADE)
+
+class Heartbeat(models.Model):
+    __tablename__ = "Heartbeats"
+    scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
+    used_mem = models.FloatField()
+    total_mem = models.FloatField()
+    used_swap = models.FloatField()
+    total_swap = models.FloatField()
+    serial_num = models.IntegerField()
+    timestamp = models.DateField()
+    total_cpu = models.FloatField()
+    disk_info = models.ExpressionList() #Is this right?
+    queue_length = models.IntegerField()
