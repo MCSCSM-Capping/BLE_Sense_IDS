@@ -15,7 +15,7 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
     result.insert("long_device_name".to_string(), "Unknown".to_string());
     result.insert("short_device_name".to_string(), "Unknown".to_string());
     result.insert("company_id".to_string(), "-1".to_string());
-    result.insert("power_level".to_string(), "-1".to_string());
+    result.insert("power_level".to_string(), "-255".to_string());
 
     // check the values for 'indicators' that describe the data to follow
     while index < advertising_data.len() {
@@ -120,13 +120,13 @@ pub fn parse_ble_packet(input: &str) -> BLEPacket {
         .captures(input)
         .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<f64>().ok()))
         .flatten()
-        .unwrap_or(0.0); // Default to 0.0 if parsing fails
+        .unwrap_or(-1.0); // Default to 0.0 if parsing fails
 
     let rssi: i32 = rssi_re
         .captures(input)
         .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok()))
         .flatten()
-        .unwrap_or(-1); // Default to -1 if parsing fails
+        .unwrap_or(1); // Default to 1 if parsing fails - rssi caps at 0
 
     let channel_index: i32 = channel_index_re
         .captures(input)
@@ -166,7 +166,7 @@ pub fn parse_ble_packet(input: &str) -> BLEPacket {
         .unwrap_or(""); // Default to empty if parsing fails
 
     // initialize to defaults in case no advertising data presented
-    let mut power_level: i32 = -1;
+    let mut power_level: i32 = -255; // so default value is out of range 
     let mut company_id: i32 = -1;
     let mut long_device_name: String = "Unknown".to_string();
     let mut short_device_name: String = "Unknown".to_string();
