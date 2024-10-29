@@ -81,7 +81,7 @@ class Scanner(models.Model):
         Company, on_delete=models.CASCADE, related_name="scanners"
     )
 
-    packets: models.QuerySet["Packet"]
+    packets: models.QuerySet["Packet"] #One to many
 
 
 class Packet(models.Model):
@@ -93,10 +93,9 @@ class Packet(models.Model):
     #   should this be time since the recording started?
     #           -- how would we even get that?
     #   should this be time since Epoch?
-    #   Couldn't this just be a date field?
-    timestamp = models.IntegerField()
+    timestamp = models.DateField()
 
-
+    
     scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
 
 class Device(models.Model):
