@@ -2,7 +2,7 @@ use std::{
     collections::VecDeque, sync::{Arc, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use apache_avro::Writer;
+use apache_avro::{Writer, Codec};
 use tungstenite::Message;
 use crate::config::{
     BLEPacket, PACKET_AVRO_SCHEMA, HB_AVRO_SCHEMA, BACKEND_SOCKET, BACKEND_WEBSOCKET_ENDPOINT, 
@@ -19,22 +19,28 @@ pub struct PacketDelivery {
 }
 
 // use the schema to encode/serialize data to avro
-fn encode_to_packet_avro(delivery: PacketDelivery) -> Vec<u8> {
-    let mut writer: Writer<'_, Vec<u8>> = Writer::new(&PACKET_AVRO_SCHEMA.get().unwrap(), Vec::new());
+fn encode_to_packet_avro(delivery: PacketDelivery) -> Vec<u8> {    
+    // Create a writer with schema writing disabled
+    let mut writer: Writer<'_, Vec<u8>> = Writer::builder()
+        .schema(PACKET_AVRO_SCHEMA.get().unwrap())
+        .codec(Codec::Null)// codec null to avoid the schema being included
+        .writer(Vec::new())
+        .build();
     writer.append_ser(delivery).expect("Unable to serialize data");
-    let encoded_data: Vec<u8> = writer.into_inner().expect("Unable to get encoded data");
-
-    encoded_data
+    
+    writer.into_inner().expect("Unable to get encoded data")
 }
 
 fn encode_to_hb_avro(hb: HeartbeatMessage) -> Vec<u8> {
-    let mut writer: Writer<'_, Vec<u8>> = Writer::new(&HB_AVRO_SCHEMA.get().unwrap(), Vec::new());
+    let mut writer: Writer<'_, Vec<u8>> = Writer::builder()
+        .schema(HB_AVRO_SCHEMA.get().unwrap())
+        .codec(Codec::Null)// codec null to avoid the schema being included
+        .writer(Vec::new())
+        .build();
     writer.append_ser(hb).expect("Unable to serialize data");
-    let encoded_data: Vec<u8> = writer.into_inner().expect("Unable to get encoded data");
-
-    encoded_data
+    
+    writer.into_inner().expect("Unable to get encoded data")
 }
-
 
 fn wrap_packet_delivery(packets: Vec<BLEPacket>) -> PacketDelivery {
     let time: SystemTime = SystemTime::now();
@@ -99,5 +105,4 @@ pub fn send_heartbeat(hb_msg: HeartbeatMessage) {
             println!("{} Sent Heartbeat Message to endpoint: {}.", LOG, *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
         }
     }
-
 }
