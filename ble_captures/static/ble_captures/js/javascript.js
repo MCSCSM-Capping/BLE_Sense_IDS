@@ -165,6 +165,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 //all devices table
 document.addEventListener('DOMContentLoaded', function () { //is page loaded?
+  
+  //data that will be directly inserted into table
+  let devices = [];
 
   const endpoint = '/api/fetch-devices';
   fetch(endpoint) //get data for all devices
@@ -176,8 +179,6 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
     })
     .then(data => { //response is ok 
       
-      //data that will be directly inserted into table
-      let devices = [];
       
             //loop through fetch response and insert into table data
             for (const [key, device] of Object.entries(data.devices)) {
@@ -192,18 +193,18 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
             }
             console.log(devices);
       
-      const deviceTable = document.querySelector('#deviceTable');
+      const deviceTable = document.getElementById('deviceTable');
 
       const hotDT = new Handsontable(deviceTable, {
         data: devices,
         columns: [
           {
-            title: 'id',
+            title: 'ID',
             type: 'numeric',
             data: 'id',
           },
           {
-            title: 'name',
+            title: 'Name',
             type: 'text',
             data: 'name',
           },
@@ -213,17 +214,17 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
             data: 'OUI',
           },
           {
-            title: 'comp_id',
+            title: 'Company ID',
             type: 'text',
             data: 'comp_id',
           },
           {
-            title: 'group',
+            title: 'Group Name',
             type: 'text',
             data: 'group',
           },
           {
-            title: 'malicious?',
+            title: 'Malicous Device?',
             type: 'text',
             data: 'mal',
           },
@@ -236,6 +237,8 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
         autoWrapRow: true,
         autoWrapCol: true,
         readOnly: true,
+        stretchH: 'all',
+        width: '100%',
         afterFilter: function(){
           console.log(hotDT.countRows()) // have this appear on page as filter results
         },

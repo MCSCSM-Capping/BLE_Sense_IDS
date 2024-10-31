@@ -13,6 +13,39 @@
   scroll-behavior: smooth;
 }
 
+
+
+#deviceTableContainer .handsontable .ht_clone_top thead th {
+  background-color: #ffffff !important; /* Set header background to white */
+  color: black !important; /* Keep text color black for visibility */
+  font-weight: bold; /* Optional: Make header text bold */
+}
+
+/* Set font properties for all cells */
+#deviceTableContainer .handsontable .htCore th,
+#deviceTableContainer .handsontable .htCore td {
+  font-family: "Open Sans", sans-serif !important;
+  font-size: 16px !important; /* Adjust font size as needed */
+  color: black !important;
+}
+
+/* Remove gridlines */
+#deviceTableContainer .handsontable .htCore td,
+#deviceTableContainer .handsontable .htCore th {
+  border: none !important;
+}
+
+/* Set alternating row colors */
+#deviceTableContainer .handsontable .htCore tr:nth-child(odd) td {
+  background-color: #f9f9f9;
+}
+
+#deviceTableContainer .handsontable .htCore tr:nth-child(even) td {
+  background-color: #ffffff;
+}
+
+
+
 body {
   font-family: "Open Sans", sans-serif;
   background: #f6f9ff;
