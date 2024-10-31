@@ -51,35 +51,35 @@ class Scanner(models.Model):
     packets: models.QuerySet["Packet"] #One to many
 
 
-class Packet(models.Model):
-    __tablename__ = "Packets"
-    mac_address = models.TextField()
-    mac_frequencey = models.FloatField()
-    company = models.TextField()
-    # TODO: dicuss this
-    #   should this be time since the recording started?
-    #           -- how would we even get that?
-    #   should this be time since Epoch?
-    timestamp = models.DateField()
-
-    
-    scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
-
 class Device(models.Model):
     __tablename__ = "Devices"
-    id = models.IntegerField()
-    name = models.TextField(null="Unknown")
-    oui = models.TextField(null="Unknown")
+    name = models.TextField()
+    oui = models.TextField()
+
+class Packet(models.Model):
+    __tablename__ = "Packets"
+    advertising_address = models.TextField()
+    power_level = models.FloatField()
+    company_id = models.TextField()
+    time_stamp = models.DateField()
+    rssi = models.IntegerField()
+    channel_index = models.IntegerField()
+    counter = models.IntegerField()
+    protocol_version = models.IntegerField()
+    malicious = models.BooleanField()
+#    device = models.ForeignKey(
+ #       Device, on_delete=models.CASCADE, related_name="packets")
+
+    scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
 
 class Uuid(models.Model):
     __tablename__ = "UUIDs"
     uuid = models.IntegerField()
-
     device = models.ForeignKey(Device, on_delete=models.CASCADE)
 
 class User(models.Model):
     __tablename__ = "Users"
-    id = models.IntegerField()
+    id = models.IntegerField(primary_key=True)
     user_name = models.TextField()
     user_password = models.TextField()
 

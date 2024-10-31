@@ -163,6 +163,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => {
+  // WARNING: Be sure you only allow certain HTML tags to avoid XSS threats.
+  // Sanitize the "value" before passing it to the innerHTML property.
+  td.innerHTML = value;
+};
+
 //all devices table
 document.addEventListener('DOMContentLoaded', function () { //is page loaded?
   
@@ -189,10 +195,11 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
               deviceObj.comp_id = `${device.comp_id}`;
               deviceObj.group = `${device.group}`;
               deviceObj.mal = `${device.mal}`;
+              deviceObj.btn = "<button id='" + `${device.id}` + "_packet_view'" + "type='button' class='btn btn-primary btn-sm' onclick='packetView("+ `${device.id}` +")'>" + "View Packets"  +"</button>";
               devices.push(deviceObj);
             }
-            console.log(devices);
-      
+            //console.log(devices);
+        
       const deviceTable = document.getElementById('deviceTable');
 
       const hotDT = new Handsontable(deviceTable, {
@@ -228,6 +235,12 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
             type: 'text',
             data: 'mal',
           },
+          {
+            title: 'View Packets',
+            type:'text',
+            data: "btn",
+            renderer: safeHtmlRenderer,
+          }
         ],
         // enable filtering
         filters: true,
@@ -247,3 +260,7 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
 
     })
 })
+
+function packetView(foo){
+  alert(foo);
+}
