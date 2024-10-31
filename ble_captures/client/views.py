@@ -3,6 +3,7 @@ from django.shortcuts import redirect, render
 from client.models import *
 from django.views import View
 from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict
 from django.http import JsonResponse
 from django.core.validators import EmailValidator
 from django.contrib.auth.password_validation import validate_password
@@ -113,6 +114,7 @@ def fetch_data(request):
     group_data = Group.objects.all().values()
     scanner_data = Scanner.objects.all().values()
     packet_data = Packet.objects.all().values()
+    
 
     group_list = list(group_data)
     scanner_list = list(scanner_data)
@@ -199,6 +201,8 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     return render(request, "dashboard.html", context=context)
 
 
+
+
 class Register(View):
     def get(self, request: HttpRequest):
         return render(request, "register.html")
@@ -233,6 +237,7 @@ class Register(View):
             request, ("An account has been created and you are logged in.")
         )
         return redirect("dashboard")
+        return redirect("dashboard")
 
 
 class Login(View):
@@ -251,6 +256,7 @@ class Login(View):
             return redirect("login")
         login(request, user)
         messages.success(request, ("Login Successful"))
+        return redirect("dashboard")
         return redirect("dashboard")
 
 

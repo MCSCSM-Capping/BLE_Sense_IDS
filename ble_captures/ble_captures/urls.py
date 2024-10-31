@@ -28,6 +28,7 @@ urlpatterns = [
     path("addGroup/", add_group, name="add_group"),
     path("addSensor/", AddSensor.as_view(), name="add_sensor"),
     path("", dashboard, name="dashboard"),
+    path("", dashboard, name="dashboard"),
     path("activity/<int:group_pk>", activity, name="activity"),
     path("packets/<int:device_id>", packets, name="packets"),
     path("api/fetch-data/", fetch_data, name='fetch_data'),
