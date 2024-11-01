@@ -1,7 +1,7 @@
 mod heartbeat;
 mod packet_parser;
 mod config;
-mod api;
+mod socket;
 mod tester;
 use std::{
     collections::VecDeque,
@@ -79,7 +79,7 @@ fn parse_offload(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEP
                 }
 
                 if packet_queue.lock().unwrap().len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
-                    api::offload_to_api(packet_queue.clone()); // by reference so offload can empty queue FIFO
+                    socket::deliver_packets(packet_queue.clone()); // by reference so offload can empty queue FIFO
                 }
             }
         }
@@ -99,7 +99,7 @@ fn test_simulation(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BL
         packet_queue.lock().unwrap().push_back(simulated_packet);
 
         if packet_queue.lock().unwrap().len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
-            api::offload_to_api(packet_queue.clone()); // by reference so offload can empty queue FIFO
+            socket::deliver_packets(packet_queue.clone()); // by reference so offload can empty queue FIFO
         }
 
         thread::sleep(DELAY);  // Add a delay before adding more
@@ -132,7 +132,6 @@ fn main() {
     });
 
     println!("\n{} Starting Sensor (Serial: {})!\n", LOG, config::SERIAL_ID.get().unwrap());
-    println!("{}", *config::TEST_MODE.get().unwrap());
     if !*config::TEST_MODE.get().unwrap() {
         // capture packets, parse them, and periodically send to api
         parse_offload(running.clone(), packet_queue);

@@ -10,7 +10,7 @@ use sysinfo::{
     Disks, Networks, System,
 };
 use serde::{Deserialize, Serialize};
-use crate::api::send_heartbeat;
+use crate::socket::send_heartbeat;
 use crate::config::{SERIAL_ID, HEARTBEAT_FREQ, LOGGING, BLEPacket};
 
 const LOG: &str = "HB::LOG:";

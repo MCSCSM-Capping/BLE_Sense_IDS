@@ -56,9 +56,9 @@ fn wrap_packet_delivery(packets: Vec<BLEPacket>) -> PacketDelivery {
     }
 }
 
-// release encoded packets to the api
-pub fn offload_to_api(queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
-    // create object to offload via API - its the first PACKET_BUFFER_SIZE packets of the queue
+// release encoded packets to the websocket
+pub fn deliver_packets(queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
+    // create object to offload via socket - its the first PACKET_BUFFER_SIZE packets of the queue
     let mut data_to_send: Vec<BLEPacket> = Vec::new();
     for _ in 0..*PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
         if let Some(item) = queue.lock().unwrap().pop_front() {
