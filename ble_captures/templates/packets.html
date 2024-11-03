@@ -1,18 +1,17 @@
 {% extends "base2.html" %}
 {% block title %}Packets{% endblock %}
 {% block content %}
-<main id="main" class="main">
-    <!--Content here gets clipped by header bar-->
-</main><!-- End #main -->
-
-<section class ="section">
-    <div class="row">
-        <h1>Packets for </h1>
-    </div>
-
-
-
-</section>
-
-
+    <main id="main" class="main">
+        <!--Content here gets clipped by header bar-->
+    </main>
+    <!-- End #main -->
+    <section class ="section">
+        <div class="row">
+            <h1>Packets for</h1>
+        </div>
+        {{ this_device.name }} has an OUI of {{ this_device.oui }}
+        {% for packet in packets %}
+            <p>{{ packet.pk }} is the pk and {{ packet.advertising_address }} is the adv add</p>
+        {% endfor %}
+    </section>
 {% endblock %}

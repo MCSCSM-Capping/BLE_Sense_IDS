@@ -3,7 +3,6 @@
 document.addEventListener('DOMContentLoaded', function () {
 
   const endpoint = '/api/fetch-data';
-  const endpoint = '/api/fetch-data';
 
   fetch(endpoint)
     .then(response => {

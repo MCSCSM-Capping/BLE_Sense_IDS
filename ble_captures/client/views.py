@@ -13,89 +13,6 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 
 
-@dataclass
-class Device:
-    id: int
-    name: str
-    OUI: str
-    comp_id: int
-    group: str
-    mal: bool
-
-
-devices_dict = {
-    1: Device(
-        id=1,
-        name="Router-X100",
-        OUI="00:1A:2B",
-        comp_id=101,
-        group="Networking",
-        mal=False,
-    ),
-    2: Device(
-        id=2,
-        name="Switch-S200",
-        OUI="00:1A:3C",
-        comp_id=102,
-        group="Networking",
-        mal=True,
-    ),
-    3: Device(
-        id=3,
-        name="AccessPoint-A300",
-        OUI="00:1A:4D",
-        comp_id=103,
-        group="Wireless",
-        mal=False,
-    ),
-    4: Device(
-        id=4,
-        name="Firewall-F400",
-        OUI="00:1A:5E",
-        comp_id=104,
-        group="Security",
-        mal=False,
-    ),
-    5: Device(
-        id=5,
-        name="Repeater-R500",
-        OUI="00:1A:6F",
-        comp_id=105,
-        group="Networking",
-        mal=True,
-    ),
-    6: Device(
-        id=6,
-        name="Modem-M600",
-        OUI="00:1B:2A",
-        comp_id=106,
-        group="Networking",
-        mal=False,
-    ),
-    7: Device(
-        id=7, name="Hub-H700", OUI="00:1B:3B", comp_id=107, group="Networking", mal=True
-    ),
-    8: Device(
-        id=8, name="Sensor-S800", OUI="00:1B:4C", comp_id=108, group="IoT", mal=False
-    ),
-    9: Device(
-        id=9,
-        name="Camera-C900",
-        OUI="00:1B:5D",
-        comp_id=109,
-        group="Security",
-        mal=True,
-    ),
-    10: Device(
-        id=10,
-        name="SmartLock-L1000",
-        OUI="00:1B:6E",
-        comp_id=110,
-        group="IoT",
-        mal=False,
-    ),
-}
-
 
 def fetch_devices(request):
     # Convert each Device object in devices_dict to a dictionary
@@ -164,13 +81,12 @@ def activity(request: HttpRequest, group_pk) -> HttpResponse:
     return render(request, "activity.html", context=context)
 
 
-def packets(request: HttpRequest, device_id: int) -> HttpResponse:
-    device = devices_dict.get(device_id)
+def packets(request: HttpRequest, device_pk) -> HttpResponse:
+    context = {
+        "this_device": Device.objects.get(pk=device_pk),
+        "packets": Packet.objects.filter(device=device_pk),
+    }
 
-    context = {"this_device": asdict(device)}
-
-    JsonResponse(context, safe=False)
-    # need to add packets object to this
     return render(request, "packets.html", context=context)
 
 

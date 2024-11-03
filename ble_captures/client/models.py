@@ -17,12 +17,12 @@ class Company(models.Model):
     __tablename__ = "Companies"
     name = models.TextField()
 
-    registries: models.QuerySet["Registy"]
+    registries: models.QuerySet["Registry"]
 
 
 # grouper for user to register with many companies
 #   and companies to have many users
-class Registy(models.Model):
+class Registry(models.Model):
     __tablename__ = "Registers"
     password = models.TextField()
 
@@ -67,8 +67,8 @@ class Packet(models.Model):
     counter = models.IntegerField()
     protocol_version = models.IntegerField()
     malicious = models.BooleanField()
-#    device = models.ForeignKey(
- #       Device, on_delete=models.CASCADE, related_name="packets")
+    device = models.ForeignKey(
+        Device, on_delete=models.CASCADE, related_name="packets")
 
     scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
 
