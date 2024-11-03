@@ -11,6 +11,8 @@ from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import ValidationError
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.core.serializers import serialize
+import json
 
 
 
@@ -22,6 +24,31 @@ def fetch_devices(request):
 
     return JsonResponse(device_data, safe=False)
 
+def fetch_pkt_data(request, device_pk):
+    # Get packet data for the device
+    packet_data = Packet.objects.filter(device=device_pk)
+    
+    # Serialize packet data and ensure `pk` is included as a field in each packet
+    packet_list = [
+        {
+            "pk": packet["pk"],  # Ensure `pk` is directly included
+            **packet["fields"]    # Unpack fields to include other packet data
+        }
+        for packet in json.loads(serialize('json', packet_data))
+    ]
+    
+    # Get device data
+    device_data = Device.objects.get(pk=device_pk)
+    device_dict = {
+        "id": device_data.id,
+        "name": device_data.name,
+        "oui": device_data.oui,
+    }
+    
+    # Construct response data
+    data = {"packets": packet_list, "this_device": device_dict}
+    
+    return JsonResponse(data, safe=False)
 
 def devices(request: HttpRequest) -> HttpResponse:
     return render(request, "devices.html")
@@ -84,7 +111,6 @@ def activity(request: HttpRequest, group_pk) -> HttpResponse:
 def packets(request: HttpRequest, device_pk) -> HttpResponse:
     context = {
         "this_device": Device.objects.get(pk=device_pk),
-        "packets": Packet.objects.filter(device=device_pk),
     }
 
     return render(request, "packets.html", context=context)

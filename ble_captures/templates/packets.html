@@ -9,9 +9,15 @@
         <div class="row">
             <h1>Packets for</h1>
         </div>
-        {{ this_device.name }} has an OUI of {{ this_device.oui }}
-        {% for packet in packets %}
-            <p>{{ packet.pk }} is the pk and {{ packet.advertising_address }} is the adv add</p>
-        {% endfor %}
+        <div id="device-data" data-device-pk="{{ this_device.pk }}"></div>
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div id="packetsTableContainer">
+                        <div id="packetsTable"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </section>
 {% endblock %}

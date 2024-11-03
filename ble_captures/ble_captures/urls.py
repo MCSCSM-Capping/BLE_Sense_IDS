@@ -32,6 +32,7 @@ urlpatterns = [
     path("activity/<int:group_pk>", activity, name="activity"),
     path("packets/<int:device_pk>", packets, name="packets"),
     path("api/fetch-data/", fetch_data, name='fetch_data'),
+    path("api/fetch-pkt-data/<int:device_pk>", fetch_pkt_data, name='fetch_pkt_data'),
     path("api/fetch-devices/", fetch_devices, name='fetch_devices'),
     path("api/fetch-pkt-count/", fetch_pkt_count, name='fetch_pkt_count'),
     path("attacks/", attacks, name="attacks"),

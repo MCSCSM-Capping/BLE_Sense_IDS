@@ -1,5 +1,5 @@
 
-
+/* this is a test function
 document.addEventListener('DOMContentLoaded', function () {
 
   const endpoint = '/api/fetch-data';
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function () {
       console.error('issue with fetch operation', error);
     });
 });
-
+*/
 
 
 /*--
@@ -295,11 +295,119 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => {
-  // WARNING: Be sure you only allow certain HTML tags to avoid XSS threats.
-  // Sanitize the "value" before passing it to the innerHTML property.
+const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => { //this allows HTML to be inserted as data in table
   td.innerHTML = value;
 };
+
+document.addEventListener('DOMContentLoaded', function(){
+  
+  const deviceElement = document.getElementById("device-data");
+  const devicePk = deviceElement.getAttribute("data-device-pk");
+
+  const endpoint = '/api/fetch-pkt-data/' +devicePk;
+
+  let packets = []; //array will hold packets
+  fetch(endpoint)
+    .then(response => {
+      if(!response.ok){
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then( data => {//response is ok
+      //console.log(data);
+      for (const [key, packet] of Object.entries(data.packets)){
+        let packetObj = {};
+        packetObj.id = `${packet.pk}`;
+        packetObj.advertising_address = `${packet.advertising_address}`;
+        packetObj.power_level = `${packet.power_level}`;
+        packetObj.company_id = `${packet.company_id}`;
+        packetObj.time_stamp = `${packet.time_stamp}`;
+        packetObj.rssi = `${packet.rssi}`;
+        packetObj.channel_index = `${packet.channel_index}`;
+        packetObj.counter = `${packet.counter}`;
+        packetObj.protocol_version = `${packet.protocol_version}`;
+        packetObj.malicious = `${packet.malicious}`;
+        packets.push(packetObj);
+      }
+      console.log(packets);
+      
+
+      const packetsTable = document.getElementById('packetsTable');
+
+      const hotDT = new Handsontable(packetsTable, {
+        data: packets,
+        columns: [
+          {
+            title: 'ID',
+            type: 'numeric',
+            data: 'id',
+          },
+          {
+            title: 'Advertising Address',
+            type: 'text',
+            data: 'advertising_address',
+          },
+          {
+            title: 'Power Level',
+            type: 'text',
+            data: 'power_level',
+          },
+          {
+            title: 'Company ID',
+            type: 'text',
+            data: 'company_id',
+          },
+          {
+            title: 'Time Stamp',
+            type: 'text',
+            data: 'time_stamp',
+          },
+          {
+            title: 'rssi',
+            type: 'text',
+            data: 'rssi',
+          },
+          {
+            title: 'Channel Index',
+            type:'text',
+            data: "channel_index",
+          },
+          {
+            title: 'Counter',
+            type:'text',
+            data: "counter",
+          },
+          {
+            title: 'Protocol Version',
+            type:'text',
+            data: "protocol_version",
+          },
+          {
+            title: 'Malicious',
+            type:'text',
+            data: "malicious",
+          },
+        ],
+        // enable filtering
+        filters: true,
+        // enable the column menu
+        dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
+        height: 'auto',
+        autoWrapRow: true,
+        autoWrapCol: true,
+        readOnly: true,
+        stretchH: 'all',
+        width: '100%',
+        afterFilter: function(){
+          console.log(hotDT.countRows()) // have this appear on page as filter results
+        },
+        licenseKey: 'non-commercial-and-evaluation',
+      });
+    })
+
+})
+
 
 //all devices table
 document.addEventListener('DOMContentLoaded', function () { //is page loaded?
