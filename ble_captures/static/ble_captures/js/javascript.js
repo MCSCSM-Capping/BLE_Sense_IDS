@@ -299,24 +299,25 @@ const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => { //this a
   td.innerHTML = value;
 };
 
-document.addEventListener('DOMContentLoaded', function(){
-  
+//packets by Device table
+document.addEventListener('DOMContentLoaded', function () {
+
   const deviceElement = document.getElementById("device-data");
   const devicePk = deviceElement.getAttribute("data-device-pk");
 
-  const endpoint = '/api/fetch-pkt-data/' +devicePk;
+  const endpoint = '/api/fetch-pkt-data/' + devicePk;
 
   let packets = []; //array will hold packets
   fetch(endpoint)
     .then(response => {
-      if(!response.ok){
+      if (!response.ok) {
         throw new Error('Network response was not ok');
       }
       return response.json();
     })
-    .then( data => {//response is ok
+    .then(data => {//response is ok
       //console.log(data);
-      for (const [key, packet] of Object.entries(data.packets)){
+      for (const [key, packet] of Object.entries(data.packets)) {
         let packetObj = {};
         packetObj.id = `${packet.pk}`;
         packetObj.advertising_address = `${packet.advertising_address}`;
@@ -331,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function(){
         packets.push(packetObj);
       }
       console.log(packets);
-      
+
 
       const packetsTable = document.getElementById('packetsTable');
 
@@ -370,22 +371,22 @@ document.addEventListener('DOMContentLoaded', function(){
           },
           {
             title: 'Channel Index',
-            type:'text',
+            type: 'text',
             data: "channel_index",
           },
           {
             title: 'Counter',
-            type:'text',
+            type: 'text',
             data: "counter",
           },
           {
             title: 'Protocol Version',
-            type:'text',
+            type: 'text',
             data: "protocol_version",
           },
           {
             title: 'Malicious',
-            type:'text',
+            type: 'text',
             data: "malicious",
           },
         ],
@@ -399,7 +400,7 @@ document.addEventListener('DOMContentLoaded', function(){
         readOnly: true,
         stretchH: 'all',
         width: '100%',
-        afterFilter: function(){
+        afterFilter: function () {
           console.log(hotDT.countRows()) // have this appear on page as filter results
         },
         licenseKey: 'non-commercial-and-evaluation',
@@ -411,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
 //all devices table
 document.addEventListener('DOMContentLoaded', function () { //is page loaded?
-  
+
   //data that will be directly inserted into table
   let devices = [];
 
@@ -424,22 +425,35 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
       return response.json();
     })
     .then(data => { //response is ok 
-      
-      
-            //loop through fetch response and insert into table data
-            for (const [key, device] of Object.entries(data.devices)) {
-              let deviceObj = {};
-              deviceObj.id = `${device.id}`;
-              deviceObj.name = `${device.name}`;
-              deviceObj.OUI = `${device.OUI}`;
-              deviceObj.comp_id = `${device.comp_id}`;
-              deviceObj.group = `${device.group}`;
-              deviceObj.mal = `${device.mal}`;
-              deviceObj.btn = "<button id='" + `${device.id}` + "_packet_view'" + "type='button' class='btn btn-primary btn-sm' onclick='packetView("+ `${device.id}` +")'>" + "View Packets"  +"</button>";
-              devices.push(deviceObj);
-            }
-            //console.log(devices);
-        
+      console.log(data)
+      /**
+       * fetch object looks like this
+       * device_data = {
+            "id": device.id,
+            "name": device.name,
+            "oui": device.oui,
+            "company_id": latest_packet.company_id,
+            "time_stamp": latest_packet.time_stamp,
+            "scanner name": scan.scanner.name if scan else None,
+            "group": scan.scanner.group.name if scan else None,
+        }
+       */
+
+      //loop through fetch response and insert into table data
+      data.forEach(device => {
+
+        let deviceObj = {};
+        deviceObj.id = `${device.id}`;
+        deviceObj.OUI = `${device.oui}`;
+        deviceObj.comp_id = `${device.company_id}`;
+        deviceObj.btn = `<a href="/packets/${device.id}"> View Packets </a>`;
+        deviceObj.time = `${device.time_stamp}`
+        deviceObj.scanner = `${device.scanner_name}`
+        deviceObj.group = `${device.group}`
+        devices.push(deviceObj);
+      })
+      //console.log(devices);
+
       const deviceTable = document.getElementById('deviceTable');
 
       const hotDT = new Handsontable(deviceTable, {
@@ -449,11 +463,6 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
             title: 'ID',
             type: 'numeric',
             data: 'id',
-          },
-          {
-            title: 'Name',
-            type: 'text',
-            data: 'name',
           },
           {
             title: 'OUI',
@@ -466,18 +475,23 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
             data: 'comp_id',
           },
           {
-            title: 'Group Name',
+            title: 'Scanned by',
+            type: 'text',
+            data: 'scanner',
+          },
+          {
+            title: 'Last seen at',
             type: 'text',
             data: 'group',
           },
           {
-            title: 'Malicous Device?',
+            title: 'Last detected at',
             type: 'text',
-            data: 'mal',
+            data: 'time'
           },
           {
             title: 'View Packets',
-            type:'text',
+            type: 'text',
             data: "btn",
             renderer: safeHtmlRenderer,
           }
@@ -492,15 +506,14 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
         readOnly: true,
         stretchH: 'all',
         width: '100%',
-        afterFilter: function(){
+        afterFilter: function () {
           console.log(hotDT.countRows()) // have this appear on page as filter results
         },
         licenseKey: 'non-commercial-and-evaluation',
       });
 
+
+
     })
 })
 
-function packetView(foo){
-  alert(foo);
-}

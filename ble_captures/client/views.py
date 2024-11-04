@@ -12,17 +12,52 @@ from django.core.exceptions import ValidationError
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.serializers import serialize
+from django.db.models import Max
 import json
 
 
 
 def fetch_devices(request):
-    # Convert each Device object in devices_dict to a dictionary
-    device_data = {
-        "devices": {key: asdict(device) for key, device in devices_dict.items()}
-    }
+     # First, get each device's latest packet by timestamp
+    latest_packets = (
+        Packet.objects
+        .values("device_id")
+        .annotate(latest_timestamp=Max("time_stamp"))
+    )
 
-    return JsonResponse(device_data, safe=False)
+    # Get the details of each device along with its latest packet and related scanner and group
+    devices_with_latest_packet = []
+    for entry in latest_packets:
+        device_id = entry["device_id"]
+        latest_timestamp = entry["latest_timestamp"]
+        
+        # Get the device, latest packet, and associated scan
+        device = Device.objects.get(id=device_id)
+        latest_packet = Packet.objects.filter(device=device, time_stamp=latest_timestamp).first()
+        
+        # Get the latest scan for this packet if it exists
+        scan = Scans.objects.filter(packet=latest_packet).select_related("scanner__group").first()
+        
+        # Print data to confirm values
+        print(f"Device ID: {device_id}, Latest Packet: {latest_packet}, Scan: {scan}")
+        if scan:
+            print(f"Scanner: {scan.scanner}, Group: {scan.scanner.group}")
+
+
+
+        # Collect relevant information
+        device_data = {
+            "id": device.id,
+            "oui": latest_packet.oui,
+            "company_id": latest_packet.company_id,
+            "time_stamp": latest_packet.time_stamp,
+            "scanner name": scan.scanner.name if scan else None,
+            "group": scan.scanner.group.name if scan else None,
+        }
+
+        devices_with_latest_packet.append(device_data)
+
+    return JsonResponse(devices_with_latest_packet, safe=False)
 
 def fetch_pkt_data(request, device_pk):
     # Get packet data for the device
@@ -41,8 +76,6 @@ def fetch_pkt_data(request, device_pk):
     device_data = Device.objects.get(pk=device_pk)
     device_dict = {
         "id": device_data.id,
-        "name": device_data.name,
-        "oui": device_data.oui,
     }
     
     # Construct response data

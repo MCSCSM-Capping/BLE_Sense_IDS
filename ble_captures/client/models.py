@@ -53,13 +53,12 @@ class Scanner(models.Model):
 
 class Device(models.Model):
     __tablename__ = "Devices"
-    name = models.TextField()
-    oui = models.TextField()
+
 
 class Packet(models.Model):
     __tablename__ = "Packets"
     advertising_address = models.TextField()
-    power_level = models.FloatField()
+    power_level = models.FloatField()       
     company_id = models.TextField()
     time_stamp = models.DateField()
     rssi = models.IntegerField()
@@ -67,6 +66,8 @@ class Packet(models.Model):
     counter = models.IntegerField()
     protocol_version = models.IntegerField()
     malicious = models.BooleanField()
+    long_name = models.TextField()
+    oui = models.TextField()
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="packets")
 
