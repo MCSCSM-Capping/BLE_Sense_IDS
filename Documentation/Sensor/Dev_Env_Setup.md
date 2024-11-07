@@ -25,7 +25,7 @@ Additional documentation can be found on [their site](https://docs.nordicsemi.co
    1. Install [nrf-device-lib driver](https://github.com/NordicSemiconductor/pc-nrfconnect-launcher/blob/main/build/drivers/nrf-device-lib-driver-installer.exe)
    #### Linux/Mac
    1. `sudo apt install libusb-1.0-0`
-   1. Download [nrf-udev](https://github.com/NordicSemiconductor/nrf-udevsudo), then `dpkg -i nrf-udev_1.0.1-all.deb`
+   1. Download [nrf-udev](https://github.com/NordicSemiconductor/nrf-udev), then `sudo dpkg -i nrf-udev_1.0.1-all.deb`
 1. nrfutil comes bare bones on install. We will get the additional functionality we need.
    1. `nrfutil self-upgrade`
    2. `nrfutil search` to see available tools to install
