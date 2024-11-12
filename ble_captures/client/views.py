@@ -3,7 +3,6 @@ from django.shortcuts import redirect, render
 from client.models import *
 from django.views import View
 from dataclasses import dataclass, asdict
-from dataclasses import dataclass, asdict
 from django.http import JsonResponse
 from django.core.validators import EmailValidator
 from django.contrib.auth.password_validation import validate_password
@@ -14,6 +13,49 @@ from django.contrib.auth.models import User
 from django.core.serializers import serialize
 from django.db.models import Max
 import json
+from django.db.models import Count, Q
+from datetime import datetime
+
+def device_stats(request):
+    # Parse the start and end dates from the query parameters
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+    start_date = datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None
+    end_date = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else None
+
+    # Define the time filter
+    date_filter = Q(time_stamp__range=(start_date, end_date)) if start_date and end_date else Q()
+
+    # Query for total devices
+    total_devices = Device.objects.count()
+
+    # Devices that have had a malicious packet in the specified timeframe
+    malicious_device_count = (
+        Device.objects.filter(packets__malicious=True, packets__time_stamp__range=(start_date, end_date))
+        .distinct()
+        .count()
+    )
+
+    # Devices that have never had a malicious packet in the specified timeframe
+    non_malicious_device_count = total_devices - malicious_device_count
+
+    # Count malicious devices by group within the specified timeframe
+    malicious_by_group = (
+        Group.objects.filter(scanners__packet__malicious=True, scanners__packet__time_stamp__range=(start_date, end_date))
+        .annotate(malicious_device_count=Count("scanners__packet__device", distinct=True))
+        .values("name", "malicious_device_count")
+    )
+
+    # Construct the response
+    data = {
+        "total_devices": total_devices,
+        "malicious_devices": malicious_device_count,
+        "non_malicious_devices": non_malicious_device_count,
+        "malicious_by_group": list(malicious_by_group),
+    }
+
+    return JsonResponse(data, safe=False)
+
 
 
 
@@ -38,10 +80,7 @@ def fetch_devices(request):
         # Get the latest scan for this packet if it exists
         scan = Scans.objects.filter(packet=latest_packet).select_related("scanner__group").first()
         
-        # Print data to confirm values
-        print(f"Device ID: {device_id}, Latest Packet: {latest_packet}, Scan: {scan}")
-        if scan:
-            print(f"Scanner: {scan.scanner}, Group: {scan.scanner.group}")
+        has_malicious_packet = Packet.objects.filter(device=device, malicious=True).exists()
 
 
 
@@ -53,6 +92,7 @@ def fetch_devices(request):
             "time_stamp": latest_packet.time_stamp,
             "scanner name": scan.scanner.name if scan else None,
             "group": scan.scanner.group.name if scan else None,
+            "malicious": has_malicious_packet
         }
 
         devices_with_latest_packet.append(device_data)
@@ -61,27 +101,41 @@ def fetch_devices(request):
 
 def fetch_pkt_data(request, device_pk):
     # Get packet data for the device
-    packet_data = Packet.objects.filter(device=device_pk)
+    packet_data = Packet.objects.filter(device=device_pk).order_by('pk')
     
-    # Serialize packet data and ensure `pk` is included as a field in each packet
-    packet_list = [
-        {
-            "pk": packet["pk"],  # Ensure `pk` is directly included
-            **packet["fields"]    # Unpack fields to include other packet data
+    # Serialize packet data to get initial list of dictionaries
+    serialized_packets = json.loads(serialize('json', packet_data))
+    
+    packet_list = []
+    previous_packet_data = None
+
+    # Loop through each packet, only add it if it differs from the previous packet (excluding timestamp)
+    for packet in serialized_packets:
+        # Extract current packet fields, ignoring 'time_stamp'
+        current_packet_data = {
+            key: value for key, value in packet['fields'].items() if key not in ['time_stamp', 'id']
         }
-        for packet in json.loads(serialize('json', packet_data))
-    ]
-    
+        
+        # Check if it's the first packet or differs from the previous one
+        if previous_packet_data is None or current_packet_data != previous_packet_data:
+            # Include packet pk and fields in the response list
+            packet_list.append({
+                "pk": packet["pk"],
+                **packet["fields"]
+            })
+            # Update previous_packet_data for next iteration
+            previous_packet_data = current_packet_data
+
     # Get device data
     device_data = Device.objects.get(pk=device_pk)
     device_dict = {
         "id": device_data.id,
     }
     
-    # Construct response data
     data = {"packets": packet_list, "this_device": device_dict}
     
     return JsonResponse(data, safe=False)
+
 
 def devices(request: HttpRequest) -> HttpResponse:
     return render(request, "devices.html")

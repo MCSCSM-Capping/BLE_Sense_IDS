@@ -1,38 +1,4 @@
 
-/* this is a test function
-document.addEventListener('DOMContentLoaded', function () {
-
-  const endpoint = '/api/fetch-data';
-
-  fetch(endpoint)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Netowrk response was not ok');
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log(data);
-    })
-    .catch(error => {
-      console.error('issue with fetch operation', error);
-    });
-  fetch(endpoint)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Netowrk response was not ok');
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log(data);
-    })
-    .catch(error => {
-      console.error('issue with fetch operation', error);
-    });
-});
-*/
-
 
 /*--
 //Current Packets Count line chart
@@ -251,53 +217,28 @@ setInterval(async function () {
   data.shift();  // Remove oldest data point
   let newData = await pktCount();
   data.push(newData);  // Add new data from API
-}
-
+  }
+  
 // Update chart with the new data
 pktCountChart.setOption({
   series: [
     {
       data: data
-    }
-  ]
-});
-}, 1000);  // Update interval is 1000 milliseconds (1 second)
-
-option && pktCountChart.setOption(option);
-
-----------------------------------------------*/
+      }
+      ]
+      });
+      }, 1000);  // Update interval is 1000 milliseconds (1 second)
+      
+      option && pktCountChart.setOption(option);
+      
+      ----------------------------------------------*/
 /*------------------------------------------------------------*/
 
-
-
-
-//total Attacks Donut Chart
-document.addEventListener("DOMContentLoaded", () => {
-  new Chart(document.querySelector('#totalAttacks'), {
-    type: 'doughnut',
-    data: {
-      labels: [
-        'Severity level 1',
-        '2', '3', '4'
-      ],
-      datasets: [{
-        label: 'Total Attacks',
-        data: [300, 50, 100, 200],
-        backgroundColor: [
-          'rgb(255, 99, 132)',
-          'rgb(54, 162, 235)',
-          'rgb(255, 205, 86)',
-          'rgb(255, 0, 0)'
-        ],
-        hoverOffset: 4
-      }]
-    }
-  });
-});
-
-const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => { //this allows HTML to be inserted as data in table
+//allow HTML to be inserted as data in table
+const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => {
   td.innerHTML = value;
 };
+
 
 //packets by Device table
 document.addEventListener('DOMContentLoaded', function () {
@@ -427,17 +368,18 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
     .then(data => { //response is ok 
       console.log(data)
       /**
-       * fetch object looks like this
+       * fetch object structure
        * device_data = {
-            "id": device.id,
-            "name": device.name,
-            "oui": device.oui,
-            "company_id": latest_packet.company_id,
-            "time_stamp": latest_packet.time_stamp,
-            "scanner name": scan.scanner.name if scan else None,
-            "group": scan.scanner.group.name if scan else None,
-        }
-       */
+      "id": device.id,
+      "name": device.name,
+      "oui": device.oui,
+      "company_id": latest_packet.company_id,
+      "time_stamp": latest_packet.time_stamp,
+      "scanner name": scan.scanner.name if scan else None,
+      "group": scan.scanner.group.name if scan else None,
+      "malicious": has_malicious_packet
+      }
+      */
 
       //loop through fetch response and insert into table data
       data.forEach(device => {
@@ -450,9 +392,9 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
         deviceObj.time = `${device.time_stamp}`
         deviceObj.scanner = `${device.scanner_name}`
         deviceObj.group = `${device.group}`
+        deviceObj.malicious = `${device.malicious}`
         devices.push(deviceObj);
       })
-      //console.log(devices);
 
       const deviceTable = document.getElementById('deviceTable');
 
@@ -463,6 +405,11 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
             title: 'ID',
             type: 'numeric',
             data: 'id',
+          },
+          {
+            title: 'Malicious?',
+            type: 'text',
+            data: 'malicious'
           },
           {
             title: 'OUI',
@@ -511,9 +458,154 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
         },
         licenseKey: 'non-commercial-and-evaluation',
       });
-
-
-
     })
 })
+
+let donutChart;
+let hotDT; // Store the Handsontable instance
+
+function fetchDataAndUpdateChart() {
+  const startDate = document.getElementById("startDate").value;
+  const endDate = document.getElementById("endDate").value;
+
+  const endpoint = `/api/device-stats/?start_date=${startDate}&end_date=${endDate}`;
+  fetch(endpoint)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then(data => {
+      // Update donut chart
+      if (donutChart) {
+        donutChart.data.datasets[0].data = [
+          data.malicious_devices,
+          data.non_malicious_devices
+        ];
+        donutChart.update();
+      } else {
+        donutChart = new Chart(document.querySelector('#totalAttacks'), {
+          type: 'doughnut',
+          data: {
+            labels: [
+              'Malicious Devices',
+              'Non-malicious Devices'
+            ],
+            datasets: [{
+              label: 'Total Attacks',
+              data: [
+                data.malicious_devices,
+                data.non_malicious_devices
+              ],
+              backgroundColor: [
+                'rgb(255, 99, 132)',
+                'rgb(54, 162, 235)',
+              ],
+              hoverOffset: 4
+            }]
+          }
+        });
+      }
+
+      // Update Handsontable
+      if (hotDT) {
+        // Update the data in the table
+        hotDT.loadData(data.malicious_by_group);
+      } else {
+        // Initialize Handsontable if not already initialized
+        const vulnLocation = document.getElementById("vulnerableLocations");
+        hotDT = new Handsontable(vulnLocation, {
+          data: data.malicious_by_group,
+          columns: [
+            {
+              title: 'Group Name',
+              type: 'text',
+              data: 'name'
+            },
+            {
+              title: 'Number of Malicious Devices',
+              type: 'numeric',
+              data: 'malicious_device_count'
+            }
+          ],
+          height: 'auto',
+          className: 'customFilterButtonExample1',
+          autoWrapRow: true,
+          autoWrapCol: true,
+          readOnly: true,
+          stretchH: 'all',
+          width: '100%',
+          licenseKey: 'non-commercial-and-evaluation',
+        });
+
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching data:', error);
+    });
+}
+
+//date range quick select
+document.addEventListener('DOMContentLoaded', function () {
+  const startDateInput = document.getElementById('startDate');
+  const endDateInput = document.getElementById('endDate');
+
+  // Function to handle date range logic
+  function setDateRange(rangeType) {
+    let startDate, endDate;
+    const today = new Date();
+    const currentYear = today.getFullYear();
+
+    switch (rangeType) {
+      case 'last30':
+        // Last 30 days
+        endDate = today.toISOString().split('T')[0]; // Get today's date
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 30);
+        startDate = startDate.toISOString().split('T')[0]; // 30 days ago
+        break;
+
+      case 'ytd':
+        // Year to Date
+        startDate = new Date(currentYear, 0, 1).toISOString().split('T')[0]; // January 1st of current year
+        endDate = today.toISOString().split('T')[0]; // Today's date
+        break;
+
+      case 'last7':
+        // Last 7 days
+        endDate = today.toISOString().split('T')[0]; // Get today's date
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 7);
+        startDate = startDate.toISOString().split('T')[0]; // 7 days ago
+        break;
+    }
+
+    // Set the date values in the inputs
+    startDateInput.value = startDate;
+    endDateInput.value = endDate;
+  }
+
+  // Add event listeners for the buttons
+  document.getElementById('last7').addEventListener('click', function () {
+    setDateRange('last7');
+  });
+  document.getElementById('last30').addEventListener('click', function () {
+    setDateRange('last30');
+  });
+
+  document.getElementById('ytd').addEventListener('click', function () {
+    setDateRange('ytd');
+  });
+  //date range set to year to date on page load
+  document.addEventListener("DOMContentLoaded", setDateRange('ytd'));
+});
+
+
+// Initialize chart on page load
+document.addEventListener("DOMContentLoaded", fetchDataAndUpdateChart);
+
+// Update chart on button click
+document.getElementById("updateButton").addEventListener("click", fetchDataAndUpdateChart);
+
 

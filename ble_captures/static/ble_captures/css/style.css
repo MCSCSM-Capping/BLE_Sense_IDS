@@ -44,6 +44,21 @@
 
 /*device tables----*/
 
+.handsontable.customFilterButtonExample1 .changeType {
+  background: #e2e2e2;
+  border-radius: 100%;
+  width: 16px;
+  color: #0075ff !important;
+  height: 16px;
+  padding: 3px 2px;
+  border: none;
+}
+
+.handsontable.customFilterButtonExample1 .changeType::before {
+  content: '▼ ';
+  zoom: 0.9;
+}
+
 #deviceTableContainer .handsontable .ht_clone_top thead th {
   background-color: #ffffff !important; /* Set header background to white */
   color: black !important; /* Keep text color black for visibility */
