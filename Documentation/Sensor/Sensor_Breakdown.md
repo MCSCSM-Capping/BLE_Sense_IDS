@@ -6,7 +6,7 @@ This document describes how the sensor works.
 1. The program begins in main(). The first thing we do is load_config().
 2. First, we load the contents of the config.ini file into a hashmap. 
 3. Then, we use the information stored in it to set global constants. 
-4. Next, we load the avro schema from schema.avsc into a Schema object for later.
+4. Next, we load the avro schema for both Packet Deliveries and Heartbeat Messages into schema objects.
 5. We then load in our OUI lookup table as a hashmap.
 6. We also open the websocket connection to the backend to use later.
 7. Finally, we detect what port the dongle is on.
