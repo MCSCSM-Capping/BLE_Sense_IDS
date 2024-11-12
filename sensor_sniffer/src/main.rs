@@ -113,6 +113,7 @@ fn main() {
     // atomic boolean to track if the program should stop
     let running: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
     // ctrl c handler - so the program will exit the infinite loop
+    // simply sets atomic bool to false so that we exit safely
     {
         let r: Arc<AtomicBool> = running.clone();
         ctrlc::set_handler(move || {
@@ -125,15 +126,16 @@ fn main() {
     let packet_queue: Arc<Mutex<VecDeque<BLEPacket>>> = Arc::new(Mutex::new(VecDeque::<BLEPacket>::new()));
     let queue_clone: Arc<Mutex<VecDeque<BLEPacket>>> = packet_queue.clone();
     let running_clone_4hb: Arc<AtomicBool> = running.clone();
+    // system obj used to collect load & resource information
     let mut system: System = System::new_all();
 
-    thread::spawn(move || {
+    thread::spawn(move || { // start the heart beating
         heartbeat::heartbeat(running_clone_4hb, queue_clone, &mut system);
     });
 
     println!("\n{} Starting Sensor (Serial: {})!\n", LOG, config::SERIAL_ID.get().unwrap());
     if !*config::TEST_MODE.get().unwrap() {
-        // capture packets, parse them, and periodically send to api
+        // capture packets, parse them, and periodically send to socket
         parse_offload(running.clone(), packet_queue);
     } else {
         println!("\nRunning in simulated test mode...");
