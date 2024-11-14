@@ -60,7 +60,7 @@ def device_stats(request):
 
 
 def fetch_devices(request):
-     # First, get each device's latest packet by timestamp
+        # First, get each device's latest packet by timestamp
     latest_packets = (
         Packet.objects
         .values("device_id")
@@ -100,17 +100,23 @@ def fetch_devices(request):
     return JsonResponse(devices_with_latest_packet, safe=False)
 
 def fetch_pkt_data(request, device_pk):
-    # Get packet data for the device
-    packet_data = Packet.objects.filter(device=device_pk).order_by('pk')
+    # Get the page number from the request (default to 1 if not provided)
+    page = int(request.GET.get('page', 1))
+    packets_per_page = 500
     
-    # Serialize packet data to get initial list of dictionaries
+    # Calculate starting index based on page
+    start_index = (page - 1) * packets_per_page
+    end_index = page * packets_per_page
+
+    # Get the initial packet queryset and slice it for pagination
+    packet_data = Packet.objects.filter(device=device_pk).order_by('-pk')[start_index:end_index + 1]
     serialized_packets = json.loads(serialize('json', packet_data))
-    
+
     packet_list = []
     previous_packet_data = None
 
     # Loop through each packet, only add it if it differs from the previous packet (excluding timestamp)
-    for packet in serialized_packets:
+    for packet in serialized_packets[:packets_per_page]:  # Limit to 500 packets
         # Extract current packet fields, ignoring 'time_stamp'
         current_packet_data = {
             key: value for key, value in packet['fields'].items() if key not in ['time_stamp', 'id']
@@ -126,15 +132,25 @@ def fetch_pkt_data(request, device_pk):
             # Update previous_packet_data for next iteration
             previous_packet_data = current_packet_data
 
+    # Check if there are more packets beyond the current batch
+    has_more_packets = len(serialized_packets) > packets_per_page
+
     # Get device data
     device_data = Device.objects.get(pk=device_pk)
     device_dict = {
         "id": device_data.id,
     }
-    
-    data = {"packets": packet_list, "this_device": device_dict}
+
+    # Prepare the response data
+    data = {
+        "packets": packet_list,
+        "this_device": device_dict,
+        "has_more_packets": has_more_packets,  # Flag to indicate more data
+        "next_page": page + 1 if has_more_packets else None  # Indicate the next page if available
+    }
     
     return JsonResponse(data, safe=False)
+
 
 
 def devices(request: HttpRequest) -> HttpResponse:

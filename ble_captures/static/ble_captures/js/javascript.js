@@ -248,107 +248,108 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const endpoint = '/api/fetch-pkt-data/' + devicePk;
 
-  let packets = []; //array will hold packets
-  fetch(endpoint)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      return response.json();
-    })
-    .then(data => {//response is ok
-      //console.log(data);
-      for (const [key, packet] of Object.entries(data.packets)) {
-        let packetObj = {};
-        packetObj.id = `${packet.pk}`;
-        packetObj.advertising_address = `${packet.advertising_address}`;
-        packetObj.power_level = `${packet.power_level}`;
-        packetObj.company_id = `${packet.company_id}`;
-        packetObj.time_stamp = `${packet.time_stamp}`;
-        packetObj.rssi = `${packet.rssi}`;
-        packetObj.channel_index = `${packet.channel_index}`;
-        packetObj.counter = `${packet.counter}`;
-        packetObj.protocol_version = `${packet.protocol_version}`;
-        packetObj.malicious = `${packet.malicious}`;
-        packets.push(packetObj);
-      }
-      console.log(packets);
+  let packets = []; // array will hold packets
+  let currentPage = 1;  // New variable to track the current page**
 
+  // Function to fetch packet data with pagination
+  function loadPacketData(page) {
+    fetch(`${endpoint}?page=${page}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => { // response is ok
+        // Append fetched packets to packets array
 
-      const packetsTable = document.getElementById('packetsTable');
+        data.packets.forEach(packet => {
+          let packetObj = {};
+          packetObj.id = `${packet.pk}`;
+          packetObj.advertising_address = `${packet.advertising_address}`;
+          packetObj.power_level = `${packet.power_level}`;
+          packetObj.company_id = `${packet.company_id}`;
+          packetObj.time_stamp = `${packet.time_stamp}`;
+          packetObj.rssi = `${packet.rssi}`;
+          packetObj.channel_index = `${packet.channel_index}`;
+          packetObj.counter = `${packet.counter}`;
+          packetObj.protocol_version = `${packet.protocol_version}`;
+          packetObj.malicious = `${packet.malicious}`;
+          packets.push(packetObj);
+        });
 
-      const hotDT = new Handsontable(packetsTable, {
-        data: packets,
-        columns: [
-          {
-            title: 'ID',
-            type: 'numeric',
-            data: 'id',
-          },
-          {
-            title: 'Advertising Address',
-            type: 'text',
-            data: 'advertising_address',
-          },
-          {
-            title: 'Power Level',
-            type: 'text',
-            data: 'power_level',
-          },
-          {
-            title: 'Company ID',
-            type: 'text',
-            data: 'company_id',
-          },
-          {
-            title: 'Time Stamp',
-            type: 'text',
-            data: 'time_stamp',
-          },
-          {
-            title: 'rssi',
-            type: 'text',
-            data: 'rssi',
-          },
-          {
-            title: 'Channel Index',
-            type: 'text',
-            data: "channel_index",
-          },
-          {
-            title: 'Counter',
-            type: 'text',
-            data: "counter",
-          },
-          {
-            title: 'Protocol Version',
-            type: 'text',
-            data: "protocol_version",
-          },
-          {
-            title: 'Malicious',
-            type: 'text',
-            data: "malicious",
-          },
-        ],
-        // enable filtering
-        filters: true,
-        // enable the column menu
-        dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
-        height: 'auto',
-        autoWrapRow: true,
-        autoWrapCol: true,
-        readOnly: true,
-        stretchH: 'all',
-        width: '100%',
-        afterFilter: function () {
-          console.log(hotDT.countRows()) // have this appear on page as filter results
-        },
-        licenseKey: 'non-commercial-and-evaluation',
+        console.log(packets);
+
+        // If Handsontable instance already exists, update data
+        const packetsTable = document.getElementById('packetsTable');
+        if (window.hotDT) {
+          window.hotDT.loadData(packets);  // Load the accumulated packet data
+          countRows();
+        } else {
+          // Create Handsontable instance if it doesn't exist
+          document.getElementById("packetHead").innerHTML += "<h2> Packets for Device ID " + devicePk + "</h2>";
+          window.hotDT = new Handsontable(packetsTable, {
+            data: packets,
+            columns: [
+              { title: 'Packet ID', type: 'numeric', data: 'id' },
+              { title: 'Time Stamp', type: 'text', data: 'time_stamp' },
+              { title: 'Advertising Address', type: 'text', data: 'advertising_address' },
+              { title: 'Power Level', type: 'text', data: 'power_level' },
+              { title: 'Company ID', type: 'text', data: 'company_id' },
+              { title: 'rssi', type: 'text', data: 'rssi' },
+              { title: 'Channel Index', type: 'text', data: "channel_index" },
+              { title: 'Counter', type: 'text', data: "counter" },
+              { title: 'Protocol Version', type: 'text', data: "protocol_version" },
+              { title: 'Malicious', type: 'text', data: "malicious" }
+            ],
+            filters: true,
+            dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
+            height: 'auto',
+            autoWrapRow: true,
+            autoWrapCol: true,
+            readOnly: true,
+            stretchH: 'all',
+            width: '100%',
+            afterFilter: function(){
+              document.getElementById("rowDisplay").innerHTML = "Rows Displayed: " + window.hotDT.countRows(); // have this appear on page as filter results
+            },
+            licenseKey: 'non-commercial-and-evaluation',
+          });
+          countRows();
+          
+          
+        }
+
+        // Check if more packets are available and display "Load More" button if so
+        const loadMoreButton = document.getElementById('loadMoreButton');
+        if (data.has_more_packets) {
+          loadMoreButton.style.display = 'block';
+          currentPage = data.next_page; // Update currentPage for the next fetch
+        } else {
+          loadMoreButton.style.display = 'none'; // Hide button if no more packets
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching packet data:', error);
       });
-    })
+  }
 
-})
+ 
+
+  // Initial data load
+  loadPacketData(currentPage);
+
+  // Event listener for the "Load More" button
+  document.getElementById('loadMoreButton').addEventListener('click', function () {
+    loadPacketData(currentPage); // Load the next page of data
+    
+  });
+
+  function countRows() {
+    document.getElementById("rowDisplay").innerHTML = "Rows Displayed: " + window.hotDT.countRows(); // have this appear on page as filter results
+  
+  }
+});
 
 
 //all devices table
