@@ -1,118 +1,147 @@
 
-/*--
-//Current Packets Count line chart
-// This graph shows the overall count of all packets
-//I need to change this to show packets at a specific time stamp as malicious or non-malicious
-var pktCountChartDom = document.getElementById('packetCount');
-var pktCountChart = echarts.init(pktCountChartDom);
-var option;
-//^This is where graphic is assigned to DOM element
+//dashboard line graph device count by category
+document.addEventListener('DOMContentLoaded', function () {
+  var chartDom = document.getElementById('deviceCount');
+  var myChart = echarts.init(chartDom);
 
-// Function to fetch packet count from API
-function fetchPacketCount() {
-  return fetch('/api/fetch-pkt-count')
-  .then(response => response.json())
-  .then(data => data.pkt_count)  
-  .catch(error => {
-    console.error('Error fetching packet count:', error);
-    return 0;  // Return 0 if there was an error
-  });
-}
+  // Arrays to store the last 100 data points
+  let xAxisData = [];
+  let maliciousData = [];
+  let nonMaliciousData = [];
+  let totalData = [];
 
-// Function to generate new data with timestamp and packet count from API
-function pktCount() {
-  now = new Date(+now + oneSec);  // Increment time by one second
-  return fetchPacketCount().then(packetCount => {
-    return {
-      name: now.toString(),  // Timestamp as name
-      value: [
-        now.getTime(),  // Use the timestamp in milliseconds for time axis
-        packetCount  // Packet count for Y-axis
-      ]
-    };
-  });
-}
+  // Fetch function to get device counts
+  function fetchDeviceCount() {
+    const endpoint = '/api/device-count/';
+    fetch(endpoint)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => {
+        //console.log(data);
 
-// Initialize chart data, current time, and value
-let data = [];
-let now = new Date();
-let oneSec = 1000;  // One second in milliseconds
+        let now = new Date().toLocaleTimeString(); // Current time for x-axis
 
-// Generate initial data
-(async function initializeData() {
-  for (var i = 0; i < 100; i++) {  // Initialize with 100 points
-  let dataPoint = await pktCount();
-  data.push(dataPoint);
-  }
-})();
+        // Append new data
+        xAxisData.push(now);
+        maliciousData.push(data.malicious_devices);
+        nonMaliciousData.push(data.non_malicious_devices);
+        totalData.push(data.all_devices);
 
-// Define chart options with hidden xAxis labels and custom tooltip
-option = {
-  
-tooltip: {
-  trigger: 'axis',
-  formatter: function (params) {
-    params = params[0];
-    var date = new Date(params.value[0]);  // Convert timestamp to date
-    var hours = date.getHours().toString().padStart(2, '0');  // Format hours
-    var minutes = date.getMinutes().toString().padStart(2, '0');  // Format minutes
-    var seconds = date.getSeconds().toString().padStart(2, '0');  // Format seconds
-    var time = hours + ':' + minutes + ':' + seconds;
-    
-    return `Time: ${time} <br/> Packet Count: ${params.value[1]}`;  // Show time and packet count
-  },
-  axisPointer: {
-    animation: false
-  }
-},
-xAxis: {
-  type: 'time',
-  splitLine: {
-    show: false
-  },
-  axisLabel: {
-    show: false  // Hide x-axis labels
-  }
-},
-yAxis: {
-  type: 'value',
-  boundaryGap: [0, '100%'],
-  splitLine: {
-    show: false
-  }
-},
-series: [
-  {
-    name: 'Packet Count',
-    type: 'line',
-    showSymbol: false,
-    data: data
-  }
-]
-};
+        // Ensure only the last 100 data points are kept
+        if (xAxisData.length > 100) {
+          xAxisData.shift();
+          maliciousData.shift();
+          nonMaliciousData.shift();
+          totalData.shift();
+        }
 
-// Update chart every 1000 milliseconds (1 second)
-setInterval(async function () {
-  for (var i = 0; i < 5; i++) {  // Shift out old data and add new data
-  data.shift();  // Remove oldest data point
-  let newData = await pktCount();
-  data.push(newData);  // Add new data from API
-  }
-  
-// Update chart with the new data
-pktCountChart.setOption({
-  series: [
-    {
-      data: data
-      }
-      ]
+        // Update the chart with the latest data
+        myChart.setOption({
+          xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: xAxisData // Use the updated x-axis labels
+          },
+          yAxis: {
+            type: 'value',
+            boundaryGap: [0, 0], // Remove extra padding on the y-axis
+            minInterval: 1, // Force whole numbers on the y-axis
+            splitLine: {
+              show: false
+            }
+          },
+          series: [
+            {
+              name: 'Malicious Devices',
+              type: 'line',
+              data: maliciousData, // Use the updated malicious data
+              color: 'red',
+              smooth: true
+            },
+            {
+              name: 'Non-Malicious Devices',
+              type: 'line',
+              data: nonMaliciousData, // Use the updated non-malicious data
+              color: 'green',
+              smooth: true
+            },
+            {
+              name: 'Total Devices',
+              type: 'line',
+              data: totalData, // Use the updated total data
+              color: 'blue',
+              smooth: true
+            }
+          ],
+          legend: {
+            data: ['Malicious Devices', 'Non-Malicious Devices', 'Total Devices'],
+            bottom: 'bottom',
+            textStyle: {
+              color: '#000',
+              fontSize: 14
+            }
+          }
+        });
+      })
+      .catch(error => {
+        console.error('Fetch error:', error);
       });
-      }, 1000);  // Update interval is 1000 milliseconds (1 second)
-      
-      option && pktCountChart.setOption(option);
-      
-      ----------------------------------------------*/
-/*------------------------------------------------------------*/
+  }
+
+  // Set the initial option for the chart
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: function (params) {
+        let tooltip = params[0].name + '<br/>';
+        params.forEach(param => {
+          tooltip += `${param.seriesName}: ${param.value}<br/>`;
+        });
+        return tooltip;
+      }
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false, // Align data points with the axis ticks
+      data: [] // Initialize with no data
+    },
+    yAxis: {
+      type: 'value',
+      boundaryGap: [0, 0], // Remove extra padding on the y-axis
+      minInterval: 1, // Force whole numbers on the y-axis
+      splitLine: {
+        show: false
+      }
+    },
+    series: [
+      { name: 'Malicious Devices', type: 'line', data: [], color: 'red', smooth: true },
+      { name: 'Non-Malicious Devices', type: 'line', data: [], color: 'green', smooth: true },
+      { name: 'Total Devices', type: 'line', data: [], color: 'blue', smooth: true }
+    ],
+    legend: {
+      data: ['Malicious Devices', 'Non-Malicious Devices', 'Total Devices'],
+      bottom: 'bottom',
+      textStyle: {
+        color: '#000',
+        fontSize: 14
+      }
+    }
+  };
+
+  // Set the initial chart option
+  myChart.setOption(option);
+
+  // Fetch data every 60 seconds
+  fetchDeviceCount(); // Initial fetch
+  setInterval(fetchDeviceCount, 10000);
+});
+
+
+
 
 //allow HTML to be inserted as data in table
 const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => {
@@ -120,7 +149,7 @@ const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => {
 };
 
 
-//packets by Device table
+//packets table
 document.addEventListener('DOMContentLoaded', function () {
 
   const deviceElement = document.getElementById("device-data");
@@ -129,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const endpoint = '/api/fetch-pkt-data/' + devicePk;
 
   let packets = []; // array will hold packets
-  let currentPage = 1;  // New variable to track the current page**
+  let currentPage = 1;  //track the current page**
 
   // Function to fetch packet data with pagination
   function loadPacketData(page) {
@@ -158,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
           packets.push(packetObj);
         });
 
-        console.log(packets);
+        //console.log(packets);
 
         // If Handsontable instance already exists, update data
         const packetsTable = document.getElementById('packetsTable');
@@ -190,14 +219,14 @@ document.addEventListener('DOMContentLoaded', function () {
             readOnly: true,
             stretchH: 'all',
             width: '100%',
-            afterFilter: function(){
-              document.getElementById("rowDisplay").innerHTML = "Rows Displayed: " + window.hotDT.countRows(); // have this appear on page as filter results
+            afterFilter: function () {
+              document.getElementById("rowDisplay").innerHTML = "Rows Displayed: " + window.hotDT.countRows();
             },
             licenseKey: 'non-commercial-and-evaluation',
           });
           countRows();
-          
-          
+
+
         }
 
         // Check if more packets are available and display "Load More" button if so
@@ -214,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
   }
 
- 
+
 
   // Initial data load
   loadPacketData(currentPage);
@@ -222,19 +251,19 @@ document.addEventListener('DOMContentLoaded', function () {
   // Event listener for the "Load More" button
   document.getElementById('loadMoreButton').addEventListener('click', function () {
     loadPacketData(currentPage); // Load the next page of data
-    
+
   });
 
   function countRows() {
-    document.getElementById("rowDisplay").innerHTML = "Rows Displayed: " + window.hotDT.countRows(); // have this appear on page as filter results
-  
+    document.getElementById("rowDisplay").innerHTML = "Rows Displayed: " + window.hotDT.countRows();
+    //this is called on page load and after each pagination
+    //this function cannot be called on afterFilter tag so if updated here it must also be updated there
   }
 });
 
 
 //all devices table
 document.addEventListener('DOMContentLoaded', function () { //is page loaded?
-
   //data that will be directly inserted into table
   let devices = [];
 
@@ -342,6 +371,8 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
     })
 })
 
+
+//Donut chart and vulnerable devices table
 let donutChart;
 let hotDT; // Store the Handsontable instance
 
@@ -477,7 +508,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchDataAndUpdateChart();
   });
 
-  document.getElementById('ytd').addEventListener('click',  () => {
+  document.getElementById('ytd').addEventListener('click', () => {
     setDateRange('ytd');
     fetchDataAndUpdateChart();
   });
