@@ -18,7 +18,34 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 
 
-# query from DB
+# queries from DB
+
+
+def system_metrics(request, scanner_id):
+    # Fetch the latest heartbeat entry for the specified scanner
+    heartbeat = (
+        Heartbeat.objects.filter(scanner_id=scanner_id).order_by("-timestamp").first()
+    )
+
+    # If no heartbeat data exists for the given scanner ID
+    if not heartbeat:
+        return JsonResponse(
+            {"error": "No heartbeat data found for this scanner"}, status=404
+        )
+
+    mem_perc = round((heartbeat.used_mem / heartbeat.total_mem) * 100, 2)
+    swap_perc = round((heartbeat.used_swap / heartbeat.total_swap) * 100, 2)
+    total_cpu = round(heartbeat.total_cpu, 2)
+
+    # Prepare the response data with the relevant metrics
+    data = {
+        "mem_perc": mem_perc,
+        "swap_perc": swap_perc,
+        "total_cpu": total_cpu,
+    }
+
+    # Return the data in a JSON response
+    return JsonResponse(data)
 
 
 def device_count(request):
@@ -207,7 +234,7 @@ def fetch_pkt_data(request, device_pk):
     return JsonResponse(data, safe=False)
 
 
-# render page views
+#render page views
 
 
 def devices(request: HttpRequest) -> HttpResponse:

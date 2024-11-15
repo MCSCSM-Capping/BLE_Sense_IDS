@@ -134,11 +134,186 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Set the initial chart option
   myChart.setOption(option);
-
+  
   // Fetch data every 60 seconds
   fetchDeviceCount(); // Initial fetch
   setInterval(fetchDeviceCount, 10000);
 });
+
+// Scanner System Metrics
+document.addEventListener('DOMContentLoaded', function () {
+  var chartDom = document.getElementById('systemMetrics');
+  var myChart = echarts.init(chartDom);
+
+  // Arrays to store the last 100 data points
+  let memoryData = [];
+  let swapData = [];
+  let cpuData = [];
+  let timeData = [];
+
+  // Fetch function to get system metrics
+  function fetchSystemMetrics(scannerID) {
+    const endpoint = `/scanner/${scannerID}/metrics/`;
+    fetch(endpoint)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log(data);
+
+        let now = new Date(); // Current time for x-axis
+
+        // Add the new data point to the respective arrays
+        timeData.push(now.toLocaleTimeString());
+        memoryData.push(data.mem_perc);
+        swapData.push(data.swap_perc);
+        cpuData.push(data.total_cpu);
+
+        // Retain only the last 100 data points
+        if (timeData.length > 100) {
+          timeData.shift();
+          memoryData.shift();
+          swapData.shift();
+          cpuData.shift();
+        }
+
+        // Update the chart with the latest data
+        myChart.setOption({
+          tooltip: {
+            trigger: 'axis',
+            formatter: function (params) {
+              let tooltip = params[0].name + '<br/>';
+              params.forEach(param => {
+                tooltip += `${param.seriesName}: ${param.value}%<br/>`;
+              });
+              return tooltip;
+            }
+          },
+          xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: timeData // Use the updated time data
+          },
+          yAxis: {
+            type: 'value',
+            boundaryGap: [0, '100%'],
+            minInterval: 1,
+            splitLine: {
+              show: false
+            },
+            axisLabel: {
+              formatter: '{value}%' // Show percentage on the y-axis
+            }
+          },
+          series: [
+            {
+              name: 'Memory Usage (%)',
+              type: 'line',
+              data: memoryData, // Use the updated memory data
+              color: 'green',
+              smooth: true
+            },
+            {
+              name: 'Swap Usage (%)',
+              type: 'line',
+              data: swapData, // Use the updated swap data
+              color: 'orange',
+              smooth: true
+            },
+            {
+              name: 'CPU Usage (%)',
+              type: 'line',
+              data: cpuData, // Use the updated CPU data
+              color: 'blue',
+              smooth: true
+            }
+          ],
+          legend: {
+            data: ['Memory Usage (%)', 'Swap Usage (%)', 'CPU Usage (%)'],
+            bottom: 'bottom',
+            textStyle: {
+              color: '#000',
+              fontSize: 14
+            }
+          }
+        });
+      })
+      .catch(error => {
+        console.error('Fetch error:', error);
+      });
+  }
+
+  // Set the initial option for the chart
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: function (params) {
+        let tooltip = params[0].name + '<br/>';
+        params.forEach(param => {
+          tooltip += `${param.seriesName}: ${param.value}%<br/>`;
+        });
+        return tooltip;
+      }
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      splitLine: {
+        show: false
+      }
+    },
+    yAxis: {
+      type: 'value',
+      boundaryGap: [0, '100%'],
+      minInterval: 1,
+      splitLine: {
+        show: false
+      },
+      axisLabel: {
+        formatter: '{value}%' // Display percentage on y-axis
+      }
+    },
+    series: [],
+    legend: {
+      data: ['Memory Usage (%)', 'Swap Usage (%)', 'CPU Usage (%)'],
+      bottom: 'bottom',
+      textStyle: {
+        color: '#000',
+        fontSize: 14
+      }
+    }
+  };
+
+  // Set the initial chart option
+  myChart.setOption(option);
+
+  // Fetch metrics when the user changes the scanner selection
+  const scannerSelect = document.getElementById("scannerSelect");
+  scannerSelect.addEventListener('change', function () {
+    const scannerID = scannerSelect.options[scannerSelect.selectedIndex].value;
+    // Clear data when scanner changes
+    memoryData = [];
+    swapData = [];
+    cpuData = [];
+    timeData = [];
+    fetchSystemMetrics(scannerID); // Fetch data for the new scanner
+  });
+
+  // Initial fetch for the default scanner
+  const initialScannerID = scannerSelect.options[scannerSelect.selectedIndex].value;
+  fetchSystemMetrics(initialScannerID);
+
+  // Periodically fetch data for the currently selected scanner
+  setInterval(() => {
+    const scannerID = scannerSelect.options[scannerSelect.selectedIndex].value;
+    fetchSystemMetrics(scannerID);
+  }, 10000); // Update every 10 seconds
+});
+
+
 
 
 

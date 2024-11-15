@@ -99,5 +99,5 @@ class Heartbeat(models.Model):
     serial_num = models.IntegerField()
     timestamp = models.DateField()
     total_cpu = models.FloatField()
-    disk_info = models.ExpressionList() #Is this right?
+    disk_info = models.TextField() #Is this right?
     queue_length = models.IntegerField()
