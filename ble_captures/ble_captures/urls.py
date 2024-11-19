@@ -20,7 +20,6 @@ from django.urls import path
 from client.views import *
 
 urlpatterns = [
-    path("", home, name="home"),
     path("admin/", admin.site.urls),
     path("login/", Login.as_view(), name="login"),
     path("register/", Register.as_view(), name="register"),
@@ -28,7 +27,21 @@ urlpatterns = [
     path("groups/", groups, name="groups"),
     path("addGroup/", add_group, name="add_group"),
     path("addSensor/", AddSensor.as_view(), name="add_sensor"),
-    path("dashboard/", dashboard, name="dashboard"),
+    path("", dashboard, name="dashboard"),
+    path("", dashboard, name="dashboard"),
     path("activity/<int:group_pk>", activity, name="activity"),
-    path("api/fetch-data/", fetch_data, name='fatch_data'),
+    path("packets/<int:device_pk>", packets, name="packets"),
+    path("companySettings", company_settings, name="company_settings"),
+    path("profile/", profile, name="profile"),
+    path("devices/", devices, name="devices"),
+    
+    #APIs
+    path('scanner/<int:scanner_id>/metrics/', system_metrics, name='system_metrics'),
+    path("api/device-count/", device_count, name="device_count"),
+    path("api/device-stats/", device_stats, name="device_stats"),
+    path("api/fetch-pkt-data/<int:device_pk>", fetch_pkt_data, name='fetch_pkt_data'),
+    path("api/fetch-devices/", fetch_devices, name='fetch_devices'),
+    path("api/fetch-pkt-count/", fetch_pkt_count, name='fetch_pkt_count'),
+
+
 ]

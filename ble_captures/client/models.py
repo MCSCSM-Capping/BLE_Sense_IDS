@@ -12,50 +12,17 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 
-# Defining the Attack dataclass for testing
-@dataclass
-class Attack:
-    id: int
-    level: str
-    sensor: int
-    date: date
-    CID: int
-
-
-attack1 = Attack(1, "high", 10, date.today(), 1111)
-attack2 = Attack(2, "medium", 20, date.today(), 2222)
-attack3 = Attack(3, "low", 30, date.today() - timedelta(days=1), 3333)
-attack4 = Attack(4, "high", 10, date.today(), 1111)
-attack5 = Attack(5, "medium", 20, date.today(), 2222)
-attack6 = Attack(6, "low", 30, date.today() - timedelta(days=2), 3333)
-attack7 = Attack(7, "high", 10, date.today(), 1111)
-attack8 = Attack(8, "medium", 20, date.today(), 2222)
-attack9 = Attack(9, "low", 30, date.today() - timedelta(days=3), 3333)
-
-# List of all instances
-attacks = [
-    attack1,
-    attack2,
-    attack3,
-    attack4,
-    attack5,
-    attack6,
-    attack7,
-    attack8,
-    attack9,
-]
-
 
 class Company(models.Model):
     __tablename__ = "Companies"
     name = models.TextField()
 
-    registries: models.QuerySet["Registy"]
+    registries: models.QuerySet["Registry"]
 
 
 # grouper for user to register with many companies
 #   and companies to have many users
-class Registy(models.Model):
+class Registry(models.Model):
     __tablename__ = "Registers"
     password = models.TextField()
 
@@ -84,35 +51,36 @@ class Scanner(models.Model):
     packets: models.QuerySet["Packet"] #One to many
 
 
-class Packet(models.Model):
-    __tablename__ = "Packets"
-    mac_address = models.TextField()
-    mac_frequencey = models.FloatField()
-    company = models.TextField()
-    # TODO: dicuss this
-    #   should this be time since the recording started?
-    #           -- how would we even get that?
-    #   should this be time since Epoch?
-    timestamp = models.DateField()
-
-    
-    scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
-
 class Device(models.Model):
     __tablename__ = "Devices"
-    id = models.IntegerField()
-    name = models.TextField(null="Unknown")
-    oui = models.TextField(null="Unknown")
+
+
+class Packet(models.Model):
+    __tablename__ = "Packets"
+    advertising_address = models.TextField()
+    power_level = models.FloatField()       
+    company_id = models.TextField()
+    time_stamp = models.DateField()
+    rssi = models.IntegerField()
+    channel_index = models.IntegerField()
+    counter = models.IntegerField()
+    protocol_version = models.IntegerField()
+    malicious = models.BooleanField()
+    long_name = models.TextField()
+    oui = models.TextField()
+    device = models.ForeignKey(
+        Device, on_delete=models.CASCADE, related_name="packets")
+
+    scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
 
 class Uuid(models.Model):
     __tablename__ = "UUIDs"
     uuid = models.IntegerField()
-
     device = models.ForeignKey(Device, on_delete=models.CASCADE)
 
 class User(models.Model):
     __tablename__ = "Users"
-    id = models.IntegerField()
+    id = models.IntegerField(primary_key=True)
     user_name = models.TextField()
     user_password = models.TextField()
 
@@ -131,5 +99,5 @@ class Heartbeat(models.Model):
     serial_num = models.IntegerField()
     timestamp = models.DateField()
     total_cpu = models.FloatField()
-    disk_info = models.ExpressionList() #Is this right?
+    disk_info = models.TextField() #Is this right?
     queue_length = models.IntegerField()

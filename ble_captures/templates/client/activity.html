@@ -1,7 +1,39 @@
 {% extends "base2.html" %}
 {% block title %}Details{% endblock %}
 {% block content %}
-<!--The context given to this page by the views function is just one group. Can expand this context to whatever data is needed from DB to display graphs as well-->
-<!--Implement JS functions that can be called here to display graph. Input variables for JS functions will be passed through as template variables-->
-You are viewing the detail page for {{this_group.name}} which has {{this_group.scanners.count}} scanners.
+  <main id="main" class="main">
+    <!--Content here gets clipped by header bar-->
+  </main>
+  <!-- End #main -->
+  <!--The context given to this page by the views function is just one group. Can expand this context to whatever data is needed from DB to display graphs as well-->
+  <!--Implement JS functions that can be called here to display graph. Input variables for JS functions will be passed through as template variables-->
+  <div class= "col lg-12">
+    <div class="card">
+      <div class = "card-body">
+        <h5 class = card-title>Group Details</h5>
+        <p>Group name: {{ this_group.name }}</p>
+        <p>Number of Scanners: {{ this_group.scanners.count }}</p>
+        <p>Group ID: {{ this_group.pk }}</p>
+        <p>Group location:</p>
+      </div>
+    </div>
+  </div>
+  <div class= "col lg-12">
+    <div class="card">
+      <div class = "card-body">
+        <h5 class="card-title">System Metrics</h5>
+        <div class="row">
+          <div class="col-sm-4">
+            <select class="form-select" id="scannerSelect">
+              <option selected>Choose a scanner to view it's activity</option>
+              {% for scanner in scanners %}<option value="{{ scanner.pk }}">{{ scanner.name }}</option>{% endfor %}
+            </select>
+          </div>
+        <!-- Line Chart -->
+        <div id="systemMetrics" style="height: 300px;"></div>
+        <!-- End Line Chart -->
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}

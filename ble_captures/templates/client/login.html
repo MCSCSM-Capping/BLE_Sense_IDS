@@ -1,6 +1,9 @@
 {% extends "noNavBase.html" %}
 {% block title %}Login{% endblock %}
 {% block content %}
+<main id="main" class="main">
+    <!--Content here gets clipped by header bar-->
+  </main><!-- End #main -->
 <div class="container-fluid">
     <div class="row">
     <div class="col-md-12" style="height: 60px;"></div>
@@ -20,7 +23,7 @@
                 <div class="form-outline">
                     <input type="password" id="password" name="password" class="form-control"/>
                     <label class="form-label" for="password">Password</label>
-                 </div>
+                </div>
                 <button class="btn btn-secondary" type="submit">Login</button>
             </form>
         </div>

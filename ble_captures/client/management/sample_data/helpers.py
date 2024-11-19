@@ -2,6 +2,7 @@ from django.conf import settings
 from client.models import *
 from avro.io import DatumReader, DatumWriter
 from avro.datafile import DataFileReader
+from datetime import datetime
 import os
 import random
 
@@ -35,10 +36,15 @@ def load_packets():
             for packet_obj in reader:
                 # currently only one packet per and the scanner is a random one
                 packet = Packet(
-                    timestamp=packet_obj.get("time_stamp"),  # pyright: ignore
-                    mac_address=packet_obj.get("advertising_address"),  # pyright: ignore
-                    mac_frequencey=packet_obj.get("power_level"),  # pyright: ignore
-                    company=packet_obj.get("company_id", 0),  # pyright: ignore
+                    time_stamp=datetime.fromtimestamp(packet_obj.get("time_stamp")),  # pyright: ignore
+                    advertising_address=packet_obj.get("advertising_address"),  # pyright: ignore
+                    power_level=packet_obj.get("power_level"),  # pyright: ignore
+                    rssi=packet_obj.get("power_level"),  # pyright: ignore
+                    channel_index=random.randrange(0, 20),
+                    counter=random.randrange(0, 100),
+                    protocol_version=random.randrange(0, 7),
+                    malicious=random.randint(0, 1) == 0,
+                    company_id=packet_obj.get("company_id", 0),  # pyright: ignore
                     scanner=scanners[random.randrange(0, len(scanners))],
                 )
                 packets.append(packet)
