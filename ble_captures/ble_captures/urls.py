@@ -34,8 +34,9 @@ urlpatterns = [
     path("companySettings", company_settings, name="company_settings"),
     path("profile/", profile, name="profile"),
     path("devices/", devices, name="devices"),
-
-    path('scanner/<int:scanner_id>/metrics/',   system_metrics, name='system_metrics'),
+    
+    #APIs
+    path('scanner/<int:scanner_id>/metrics/', system_metrics, name='system_metrics'),
     path("api/device-count/", device_count, name="device_count"),
     path("api/device-stats/", device_stats, name="device_stats"),
     path("api/fetch-pkt-data/<int:device_pk>", fetch_pkt_data, name='fetch_pkt_data'),

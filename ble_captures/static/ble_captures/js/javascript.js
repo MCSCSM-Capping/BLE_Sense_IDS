@@ -580,7 +580,6 @@ function fetchDataAndUpdateChart() {
               'Non-malicious Devices'
             ],
             datasets: [{
-              label: 'Total Attacks',
               data: [
                 data.malicious_devices,
                 data.non_malicious_devices

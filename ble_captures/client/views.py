@@ -20,7 +20,6 @@ from django.utils import timezone
 
 # queries from DB
 
-
 def system_metrics(request, scanner_id):
     # Fetch the latest heartbeat entry for the specified scanner
     heartbeat = (
@@ -134,7 +133,7 @@ def device_stats(request):
 
 
 def fetch_devices(request):
-    # First, get each device's latest packet by timestamp
+    # Gget each device's latest packet by timestamp
     latest_packets = Packet.objects.values("device_id").annotate(
         latest_timestamp=Max("time_stamp")
     )
@@ -235,7 +234,6 @@ def fetch_pkt_data(request, device_pk):
 
 
 #render page views
-
 
 def devices(request: HttpRequest) -> HttpResponse:
     return render(request, "devices.html")
