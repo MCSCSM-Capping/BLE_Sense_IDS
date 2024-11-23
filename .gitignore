@@ -1,4 +1,7 @@
+sensor_sniffer/target
+sensor_sniffer/Sniffed_Data/*
+
+!sensor_sniffer/Sniffed_Data/placeholder.txt
 venv/
 *.sqlite3
 **/__pycache__/
-sensor_sniffer/

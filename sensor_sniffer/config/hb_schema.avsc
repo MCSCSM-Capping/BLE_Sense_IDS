@@ -1,0 +1,78 @@
+{
+  "type": "record",
+  "name": "HeartbeatMessage",
+  "fields": [
+    {
+      "name": "serial",
+      "type": "int"
+    },
+    {
+      "name": "timestamp",
+      "type": "string"
+    },
+    {
+      "name": "body",
+      "type": {
+        "type": "record",
+        "name": "SystemInfo",
+        "fields": [
+          {
+            "name": "total_memory",
+            "type": "float"
+          },
+          {
+            "name": "used_memory",
+            "type": "float"
+          },
+          {
+            "name": "total_swap",
+            "type": "float"
+          },
+          {
+            "name": "used_swap",
+            "type": "float"
+          },
+          {
+            "name": "total_cpu_usage",
+            "type": "float"
+          },
+          {
+            "name": "disk_info",
+            "type": {
+              "type": "array",
+              "items": "string"
+            }
+          },
+          {
+            "name": "network_info",
+            "type": {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "NetworkInfo",
+                "fields": [
+                  {
+                    "name": "interface_name",
+                    "type": "string"
+                  },
+                  {
+                    "name": "total_received",
+                    "type": "long"
+                  },
+                  {
+                    "name": "total_transmitted",
+                    "type": "long"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "packet_queue_length",
+            "type": "int"
+          }
+        ]
+      }
+    }
+  ]
+}
