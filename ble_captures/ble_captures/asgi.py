@@ -19,7 +19,8 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ble_captures.settings")
 application = get_asgi_application()
 application = ProtocolTypeRouter(
     {
-        # "tcp": get_asgi_application(),
+        "http": get_asgi_application(),
+        "tcp": get_asgi_application(),
         "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
     }
 )
