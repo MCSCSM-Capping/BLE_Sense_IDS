@@ -1,0 +1,58 @@
+{% extends "base2.html" %}
+{% block title %}Groups{% endblock %}
+{% block content %}
+<main id="main" class="main">
+    <!--Content here gets clipped by header bar-->
+  </main><!-- End #main -->
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12" style="height: 60px;"></div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-10"><h1>My Groups</h1></div>
+        <div class="col-md-2"> 
+
+            <button id="addGroup" type="button" class="btn btn-primary btn-lg"> Add a new Building</button>
+
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-12" style="height: 60px;"></div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="table-striped table-bordered">
+        <table id="groupTbl" class="table table-striped table-hover table-responsive">
+            <thead>
+                <th>Group Name</th>
+                <th>Group Code</th>
+                <th>Active Sensors</th>
+                <th>View</th>
+            </thead>
+            <tbody>
+                {% for group in groups %}
+                <tr>
+                    <td>{{ group.name }}</td>
+                    <td>{{ group.pk }}</td>
+                    <td>{{ group.scanners.count }}</td>
+                    <td>
+                        <a href="{% url 'activity' group.pk %}">
+                            <button id="view_activity_{{ group.pk }}" type="button" class="btn btn-primary btn-sm">
+                                View Activity
+                            </button> 
+                        </a>
+                    </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base2.html" %}
+{% block title %}Add Group{% endblock %}
+{% block content %}
+<main id="main" class="main">
+    <!--Content here gets clipped by header bar-->
+  </main><!-- End #main -->
+<div class="container-fluid"></div>
+<div class="row">
+    <h1> Add a new Group</h1>
+</div>
+<div class="row">
+    <div class="col-md-3"></div>
+        <div class="col-md-6">    
+            <form > <!--This needs to add data to the DB-->
+                <div class="form-group">
+                <label for="Group Name">Group name:</label>
+                <input type="text" class="form-control" id="groupName">
+                <label for="Group Name">Group Code:</label>
+                <input type="text" class="form-control" id="groupCode">
+            
+                <label for="Group Name">City:</label>
+                <input type="text" class="form-control" id="city">    
+                    
+                <label for="Group Name">State:</label>
+                <input type="text" class="form-control" id="state">
+            </div>
+                <button type="submit" class="btn btn-primary mt-2">Submit</button>
+            </form>
+        </div>    
+    <div class="col-md-3"></div>
+</div>
+{% endblock %}
