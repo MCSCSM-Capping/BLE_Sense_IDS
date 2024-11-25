@@ -13,7 +13,8 @@ class SystemInfo(models.Model):
     total_cpu_usage = models.FloatField()
     disk_info = models.TextField()
     packet_queue_length = models.IntegerField()
-
+    scanner = models.ForeignKey('client.Scanner', on_delete=models.CASCADE) #added this
+    timestamp = models.DateTimeField() #added this
     network_information: QuerySet["NetworkInfo"]
 
 

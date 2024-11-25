@@ -1,6 +1,7 @@
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from client.models import *
+from collection.models import *
 from django.views import View
 from dataclasses import dataclass, asdict
 from django.http import JsonResponse
@@ -16,25 +17,48 @@ import json
 from django.db.models import Count, Q, Exists, OuterRef
 from datetime import datetime, timedelta
 from django.utils import timezone
-
+from django.utils.timezone import now
 
 # queries from DB
 
+def sys_status(request):
+    # Fetch each scanner's ID, name, and the latest timestamp of system info
+    latest_system_info = (
+        Scanner.objects.annotate(latest_timestamp=Max('systeminfo__timestamp'))
+        .values('id', 'name', 'latest_timestamp')
+    )
+    
+    # Return as JSON response
+    return JsonResponse(list(latest_system_info), safe=False)
+
 def system_metrics(request, scanner_id):
-    # Fetch the latest heartbeat entry for the specified scanner
+    time_threshold = now() - timedelta(seconds=90)
+
+    # Fetch the latest heartbeat entry within the last 90 seconds for the specified scanner
     heartbeat = (
-        Heartbeat.objects.filter(scanner_id=scanner_id).order_by("-timestamp").first()
+        SystemInfo.objects.filter(scanner_id=scanner_id, timestamp__gte=time_threshold)
+        .order_by("-timestamp")
+        .first()
     )
 
-    # If no heartbeat data exists for the given scanner ID
+    # If no heartbeat data exists within the last 90 seconds for the given scanner ID return error with the last heartbeat time ever
     if not heartbeat:
-        return JsonResponse(
-            {"error": "No heartbeat data found for this scanner"}, status=404
-        )
+        last_heartbeat = (
+                SystemInfo.objects.filter(scanner_id=scanner_id)
+                .order_by("-timestamp")
+                .first()
+            )
+        
+        hbtime = last_heartbeat.timestamp if last_heartbeat else 0
+        data = {
+            "error": "No heartbeat data found for this scanner in the last 90 seconds",
+            "time": hbtime,
+        }
+        return JsonResponse(data)
 
-    mem_perc = round((heartbeat.used_mem / heartbeat.total_mem) * 100, 2)
+    mem_perc = round((heartbeat.used_memory / heartbeat.total_memory) * 100, 2)
     swap_perc = round((heartbeat.used_swap / heartbeat.total_swap) * 100, 2)
-    total_cpu = round(heartbeat.total_cpu, 2)
+    total_cpu = round(heartbeat.total_cpu_usage, 2)
 
     # Prepare the response data with the relevant metrics
     data = {
@@ -233,7 +257,8 @@ def fetch_pkt_data(request, device_pk):
     return JsonResponse(data, safe=False)
 
 
-#render page views
+# render page views
+
 
 def devices(request: HttpRequest) -> HttpResponse:
     return render(request, "devices.html")

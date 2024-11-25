@@ -36,6 +36,7 @@ urlpatterns = [
     path("devices/", devices, name="devices"),
     
     #APIs
+    path('api/sys-status/', sys_status, name='sys_status'),
     path('scanner/<int:scanner_id>/metrics/', system_metrics, name='system_metrics'),
     path("api/device-count/", device_count, name="device_count"),
     path("api/device-stats/", device_stats, name="device_stats"),
