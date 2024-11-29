@@ -10,8 +10,9 @@ use sysinfo::{
     Disks, Networks, System,
 };
 use serde::{Deserialize, Serialize};
+use log::trace;
 use crate::socket::send_heartbeat;
-use crate::config::{SERIAL_ID, HEARTBEAT_FREQ, LOGGING, BLEPacket};
+use crate::config::{SERIAL_ID, HEARTBEAT_FREQ, BLEPacket};
 
 const LOG: &str = "HB::LOG:";
 
@@ -89,7 +90,6 @@ fn gather_system_info(sys: &mut System, packet_queue_length: i32) -> SystemInfo 
 pub fn heartbeat(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>, sys: &mut System) {
     while running.load(Ordering::SeqCst) {
         let queue_len: i32 = packet_queue.lock().unwrap().len() as i32;
-        // println!("Queue length: {}"queue_len);
         let system_info: SystemInfo = gather_system_info(sys, queue_len);
 
         let time: SystemTime = SystemTime::now();
@@ -103,9 +103,7 @@ pub fn heartbeat(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEP
             body: system_info,
         };
 
-        if *LOGGING.get().unwrap() {
-            println!("{} Heartbeat Message: {:#?}", LOG, hb_msg);
-        }
+        trace!("{} Heartbeat Message: {:#?}", LOG, hb_msg);
         send_heartbeat(hb_msg);
 
         thread::sleep(Duration::from_secs(*HEARTBEAT_FREQ.get().unwrap()));

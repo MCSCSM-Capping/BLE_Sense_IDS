@@ -4,9 +4,10 @@ use std::{
 };
 use apache_avro::Writer;
 use tungstenite::Message;
+use log::info;
 use crate::config::{
-    BLEPacket, PACKET_AVRO_SCHEMA, HB_AVRO_SCHEMA, BACKEND_SOCKET, BACKEND_WEBSOCKET_ENDPOINT, 
-    LOGGING, OFFLINE, PACKET_BUFFER_SIZE, SERIAL_ID
+    BLEPacket, PACKET_AVRO_SCHEMA, HB_AVRO_SCHEMA, BACKEND_SOCKET, BACKEND_WEBSOCKET_ENDPOINT,
+    OFFLINE, PACKET_BUFFER_SIZE, SERIAL_ID
 };
 use crate::heartbeat::HeartbeatMessage;
 
@@ -75,9 +76,7 @@ pub fn deliver_packets(queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
             .expect("Failed to send binary packet delivery!");
     }
 
-    if *LOGGING.get().unwrap() {
-        println!("{} Offloaded {} items from queue to endpoint {}.", LOG, PACKET_BUFFER_SIZE.get().unwrap(), *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
-    }
+    info!("{} Offloaded {} items from queue to endpoint {}.", LOG, PACKET_BUFFER_SIZE.get().unwrap(), *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
 }
 
 // deliver HB message
@@ -94,8 +93,6 @@ pub fn send_heartbeat(hb_msg: HeartbeatMessage) {
             .send(Message::Binary(encoded_msg))
             .expect("Failed to send binary heartbeat message.");
 
-        if *LOGGING.get().unwrap() {
-            println!("{} Sent Heartbeat Message to endpoint: {}.", LOG, *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
-        }
+        info!("{} Sent Heartbeat Message to endpoint: {}.", LOG, *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
     }
 }

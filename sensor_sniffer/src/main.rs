@@ -15,6 +15,8 @@ use std::{
 use config::BLEPacket;
 use sysinfo::System;
 use tester::generate_random_packet;
+use log::{info, trace};
+use env_logger;
 extern crate hex;
 #[macro_use]
 extern crate ini;
@@ -48,7 +50,7 @@ fn start_nrf_sniffer() -> Child {
         .stdout(Stdio::piped()) // pipe stdout so rust can capture and process it
         .spawn() // spawn the process
         .expect("Failed to start nrfutil.");
-    println!("{} nrfSniffer started with PID: {}", LOG, sniffer.id());
+    info!("{} nrfSniffer started with PID: {}", LOG, sniffer.id());
     return sniffer; // return process so we can reference it later
 }
 
@@ -64,18 +66,14 @@ fn parse_offload(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEP
             // Read the stdout line by line as it comes in
             for line in reader.lines() {
                 let line: String = line.expect("Could not read line from stdout");
-                // println!("{}", line.clone());
+
                 if line.contains("Parsed packet") {
                     let parsed_ble_packet: config::BLEPacket = packet_parser::parse_ble_packet(&line); 
-                    
-                    if *config::LOGGING.get().unwrap() {
-                        println!("\n\n{}", LOG);
-                        println!("{}", line);
-                        println!("{:#?}", parsed_ble_packet);
-                    }
+                                        
+                    trace!("\n\n{}{}{:#?}", LOG, line, parsed_ble_packet);
 
                     packet_queue.lock().unwrap().push_back(parsed_ble_packet);
-                    // println!("Queue Size: {}", queue.len());
+                    // trace!("Queue Size: {}", queue.len());
                 }
 
                 if packet_queue.lock().unwrap().len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
@@ -92,10 +90,9 @@ fn test_simulation(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BL
 
     while running.load(Ordering::SeqCst) {
         let simulated_packet: BLEPacket = generate_random_packet();
-        if *config::LOGGING.get().unwrap() {
-            println!("\n\n{}", LOG);
-            println!("{:#?}", simulated_packet);
-        }
+
+        trace!("\n\n{}{:#?}", LOG, simulated_packet);
+        
         packet_queue.lock().unwrap().push_back(simulated_packet);
 
         if packet_queue.lock().unwrap().len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
@@ -107,7 +104,10 @@ fn test_simulation(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BL
 }
 
 fn main() {
-    println!("\n{} Loading Config...\n", LOG);
+    // initialize logger
+    env_logger::init();
+
+    info!("\n{} Loading Sensor Configuration...\n", LOG);
     config::load_config();
 
     // atomic boolean to track if the program should stop
@@ -117,11 +117,13 @@ fn main() {
     {
         let r: Arc<AtomicBool> = running.clone();
         ctrlc::set_handler(move || {
-            println!("{} Ctrl+C Interrupt Received, shutting down...", LOG);
+            info!("{} Ctrl+C Interrupt Received, shutting down...", LOG);
             r.store(false, Ordering::SeqCst);
         })
         .expect("Error setting Ctrl-C handler");
     }
+
+    info!("\n{} Starting Sensor (Serial: {})!\n", LOG, config::SERIAL_ID.get().unwrap());
 
     let packet_queue: Arc<Mutex<VecDeque<BLEPacket>>> = Arc::new(Mutex::new(VecDeque::<BLEPacket>::new()));
     let queue_clone: Arc<Mutex<VecDeque<BLEPacket>>> = packet_queue.clone();
@@ -132,15 +134,15 @@ fn main() {
     thread::spawn(move || { // start the heart beating
         heartbeat::heartbeat(running_clone_4hb, queue_clone, &mut system);
     });
+    info!("Successfully Spawned Hearbeat Thread.");
 
-    println!("\n{} Starting Sensor (Serial: {})!\n", LOG, config::SERIAL_ID.get().unwrap());
     if !*config::TEST_MODE.get().unwrap() {
         // capture packets, parse them, and periodically send to socket
         parse_offload(running.clone(), packet_queue);
     } else {
-        println!("\nRunning in simulated test mode...");
+        info!("\nRunning in simulated test mode...");
         test_simulation(running.clone(), packet_queue);
     }   
-    println!("\n{} Sensor shut down.\n", LOG);
+    info!("\n{} Sensor shut down.\n", LOG);
 }
     

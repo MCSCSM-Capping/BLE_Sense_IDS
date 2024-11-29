@@ -11,6 +11,7 @@ use serde::Serialize; // for derive
 use tungstenite::{connect, WebSocket};
 use tungstenite::stream::MaybeTlsStream;
 use std::net::TcpStream;
+use log::{info, trace, error};
 
 pub const CONFIG_PATH: &str = "./config/config.ini";
 pub const PACKET_AVRO_SCHEMA_PATH: &str = "./config/packet_schema.avsc";
@@ -20,7 +21,6 @@ pub static SERIAL_ID: OnceLock<u32> = OnceLock::new();
 pub static PACKET_BUFFER_SIZE: OnceLock<i32> = OnceLock::new();
 pub static BACKEND_WEBSOCKET_ENDPOINT: OnceLock<String> = OnceLock::new();
 pub static HEARTBEAT_FREQ: OnceLock<u64> = OnceLock::new();
-pub static LOGGING: OnceLock<bool> = OnceLock::new();
 pub static PCAPNG: OnceLock<bool> = OnceLock::new();
 pub static PACKET_AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
 pub static HB_AVRO_SCHEMA: OnceLock<Schema> = OnceLock::new();
@@ -93,7 +93,7 @@ fn parse_oui_file(file_path: &str) -> Result<HashMap<String, String>> {
 pub fn load_config() {
     // Load the INI file by creating a map of the contents and setting our globals
     let map: HashMap<String, HashMap<String, Option<String>>> = ini!(CONFIG_PATH);
-    // println!("{:#?}", map);
+    // trace!("{:#?}", map);
 
     SERIAL_ID
         .set(map["settings"]["serial_id"].clone().unwrap().parse::<u32>().unwrap())
@@ -111,10 +111,6 @@ pub fn load_config() {
         .set(map["settings"]["heartbeat_freq"].clone().unwrap().parse::<u64>().unwrap())
         .unwrap();
 
-    LOGGING
-        .set(map["settings"]["logging"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
-        .unwrap();
-
     PCAPNG
         .set(map["settings"]["pcapng"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
         .unwrap();
@@ -127,7 +123,7 @@ pub fn load_config() {
         .set(map["settings"]["offline"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
         .unwrap();
 
-    println!("\n{} INI Settings Imported...\n", LOG);
+    trace!("\n{} INI Settings Imported...\n", LOG);
 
     // load the avro schema into a schema obj for serialization
     let mut packet_schema_file: File = File::open(PACKET_AVRO_SCHEMA_PATH).expect("Unable to open packet avro schema file");
@@ -137,7 +133,7 @@ pub fn load_config() {
     PACKET_AVRO_SCHEMA
         .set(packet_schema)
         .unwrap();
-    println!("\n{} Packet Avro Schema Loaded...\n", LOG);
+    trace!("\n{} Packet Avro Schema Loaded...\n", LOG);
 
     let mut hb_schema_file: File = File::open(HB_AVRO_SCHEMA_PATH).expect("Unable to open heartbeat avro schema file");
     let mut hb_schema_str: String = String::new();
@@ -146,19 +142,19 @@ pub fn load_config() {
     HB_AVRO_SCHEMA
         .set(hb_schema)
         .unwrap();
-    println!("\n{} Heartbeat Avro Schema Loaded...\n", LOG);
+    trace!("\n{} Heartbeat Avro Schema Loaded...\n", LOG);
 
     // load the OUI map so we can provide that information
     if OUI_MAP.set(parse_oui_file(OUI_LOOKUP_PATH).unwrap()).is_err() {
-        eprintln!("Failed to initialize OUI map");
+        error!("Failed to initialize OUI map");
     } else {
-        println!("\n{} OUI Lookup Parsed...\n", LOG);
+        trace!("\n{} OUI Lookup Parsed...\n", LOG);
     }
 
     if !*OFFLINE.get().unwrap() {
         let (socket, response) = 
             connect(&*BACKEND_WEBSOCKET_ENDPOINT.get().unwrap().as_str()).expect("Web Socket Conenction FAILED.");
-        println!("Connected to the server {:?}", response);
+        info!("Connected to the websocket {:?}", response);
         BACKEND_SOCKET
             .set(Mutex::new(socket))
             .expect("Failure to save websocket connection.");
@@ -170,6 +166,6 @@ pub fn load_config() {
         INTERFACE
             .set(get_interface())
             .unwrap();
-        println!("\n{} NRF Dongle detected on port: {}\n", LOG, INTERFACE.get().unwrap());
+        info!("\n{} NRF Dongle detected on port: {}\n", LOG, INTERFACE.get().unwrap());
     }
 }
