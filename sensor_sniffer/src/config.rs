@@ -123,7 +123,7 @@ pub fn load_config() {
         .set(map["settings"]["offline"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
         .unwrap();
 
-    trace!("\n{} INI Settings Imported...\n", LOG);
+    trace!("{} INI Settings Imported...", LOG);
 
     // load the avro schema into a schema obj for serialization
     let mut packet_schema_file: File = File::open(PACKET_AVRO_SCHEMA_PATH).expect("Unable to open packet avro schema file");
@@ -133,7 +133,7 @@ pub fn load_config() {
     PACKET_AVRO_SCHEMA
         .set(packet_schema)
         .unwrap();
-    trace!("\n{} Packet Avro Schema Loaded...\n", LOG);
+    trace!("{} Packet Avro Schema Loaded...", LOG);
 
     let mut hb_schema_file: File = File::open(HB_AVRO_SCHEMA_PATH).expect("Unable to open heartbeat avro schema file");
     let mut hb_schema_str: String = String::new();
@@ -142,13 +142,13 @@ pub fn load_config() {
     HB_AVRO_SCHEMA
         .set(hb_schema)
         .unwrap();
-    trace!("\n{} Heartbeat Avro Schema Loaded...\n", LOG);
+    trace!("{} Heartbeat Avro Schema Loaded...", LOG);
 
     // load the OUI map so we can provide that information
     if OUI_MAP.set(parse_oui_file(OUI_LOOKUP_PATH).unwrap()).is_err() {
         error!("Failed to initialize OUI map");
     } else {
-        trace!("\n{} OUI Lookup Parsed...\n", LOG);
+        trace!("{} OUI Lookup Parsed...", LOG);
     }
 
     if !*OFFLINE.get().unwrap() {
@@ -166,6 +166,6 @@ pub fn load_config() {
         INTERFACE
             .set(get_interface())
             .unwrap();
-        info!("\n{} NRF Dongle detected on port: {}\n", LOG, INTERFACE.get().unwrap());
+        info!("{} NRF Dongle detected on port: {}", LOG, INTERFACE.get().unwrap());
     }
 }

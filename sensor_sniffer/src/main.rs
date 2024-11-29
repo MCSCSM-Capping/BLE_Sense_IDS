@@ -8,14 +8,13 @@ use std::{
     io::{BufRead, BufReader},
     process::{Child, Command, Stdio},
     sync::atomic::{AtomicBool, Ordering},
-    sync::{Arc, Mutex},
-    thread,
+    sync::Arc,
     time::Duration,
 };
+use tokio::{sync::Mutex, signal};
 use config::BLEPacket;
-use sysinfo::System;
 use tester::generate_random_packet;
-use log::{info, trace};
+use log::{info, trace, error};
 use env_logger;
 extern crate hex;
 #[macro_use]
@@ -55,7 +54,20 @@ fn start_nrf_sniffer() -> Child {
 }
 
 // constantly take in the output of nrfutil. stop with an interrupt. manage api sending.
-fn parse_offload(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
+async fn parse_offload(packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
+    // atomic boolean to track if process should stop
+    let running: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
+    // ctrl c handler - so the program will exit the infinite loop
+    // simply sets atomic bool to false so that we exit safely
+    {
+        let r: Arc<AtomicBool> = running.clone();
+        ctrlc::set_handler(move || {
+            info!("{} Ctrl+C Interrupt Received, shutting down...", LOG);
+            r.store(false, Ordering::SeqCst);
+        })
+        .expect("Error setting Ctrl-C handler");
+    }
+
     let mut sniffer: Child = start_nrf_sniffer(); // start sniffer
 
     // we do this loop forever (or until interrupt)
@@ -70,79 +82,105 @@ fn parse_offload(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEP
                 if line.contains("Parsed packet") {
                     let parsed_ble_packet: config::BLEPacket = packet_parser::parse_ble_packet(&line); 
                                         
-                    trace!("\n\n{}{}{:#?}", LOG, line, parsed_ble_packet);
+                    trace!("\n\n{}{}{:#?}\n", LOG, line, parsed_ble_packet);
+                    // Lock once for both push_back and checking the size
+                    let mut locked_queue = packet_queue.lock().await;
 
-                    packet_queue.lock().unwrap().push_back(parsed_ble_packet);
+                    locked_queue.push_back(parsed_ble_packet);
                     // trace!("Queue Size: {}", queue.len());
-                }
 
-                if packet_queue.lock().unwrap().len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
-                    socket::deliver_packets(packet_queue.clone()); // by reference so offload can empty queue FIFO
+                    if locked_queue.len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
+                        tokio::spawn(socket::deliver_packets(packet_queue.clone())); // we don't care when this completes
+                    }
+
+                    drop(locked_queue); // drop the queue lock
                 }
             }
         }
     }
+    info!("Packet Process Halted.");
     // dump_queue(); if shutting down, might want to dump the queue to api first to avoid data loss?
 }
 
-fn test_simulation(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
+
+async fn test_simulation(packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
     const DELAY: Duration = Duration::from_millis(10);
 
-    while running.load(Ordering::SeqCst) {
-        let simulated_packet: BLEPacket = generate_random_packet();
+    // Use a loop to continuously simulate until we get a Ctrl+C signal
+    loop {
+        // Check for Ctrl+C signal
+        tokio::select! {
+            // Simulate packet generation
+            _ = tokio::time::sleep(DELAY) => {
+                let simulated_packet: BLEPacket = generate_random_packet();
 
-        trace!("\n\n{}{:#?}", LOG, simulated_packet);
-        
-        packet_queue.lock().unwrap().push_back(simulated_packet);
+                trace!("\n\n{}{:#?}\n", LOG, simulated_packet);
 
-        if packet_queue.lock().unwrap().len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
-            socket::deliver_packets(packet_queue.clone()); // by reference so offload can empty queue FIFO
+                // Lock the queue and push the new simulated packet
+                let mut locked_queue = packet_queue.lock().await;
+                locked_queue.push_back(simulated_packet);
+
+                // If the queue exceeds the specified buffer size, spawn a task to deliver packets
+                if locked_queue.len() >= *config::PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
+                    tokio::spawn(socket::deliver_packets(packet_queue.clone()));
+                }
+
+                // Explicitly drop the lock (this is optional, as it will drop automatically when the scope ends)
+                drop(locked_queue);
+            },
+
+            // Handle Ctrl+C signal (gracefully terminate the simulation)
+            _ = signal::ctrl_c() => {
+                info!("Ctrl+C received by simulation.");
+                break; // Exit the loop when the interrupt signal is received
+            }
         }
-
-        thread::sleep(DELAY);  // Add a delay before adding more
     }
+
+    info!("Test Simulation Process Halted.");
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // initialize logger
     env_logger::init();
 
-    info!("\n{} Loading Sensor Configuration...\n", LOG);
+    info!("{} Loading Sensor Configuration...", LOG);
     config::load_config();
 
-    // atomic boolean to track if the program should stop
-    let running: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
-    // ctrl c handler - so the program will exit the infinite loop
-    // simply sets atomic bool to false so that we exit safely
-    {
-        let r: Arc<AtomicBool> = running.clone();
-        ctrlc::set_handler(move || {
-            info!("{} Ctrl+C Interrupt Received, shutting down...", LOG);
-            r.store(false, Ordering::SeqCst);
-        })
-        .expect("Error setting Ctrl-C handler");
-    }
-
-    info!("\n{} Starting Sensor (Serial: {})!\n", LOG, config::SERIAL_ID.get().unwrap());
+    info!("{} Starting Sensor (Serial: {})!", LOG, config::SERIAL_ID.get().unwrap());
 
     let packet_queue: Arc<Mutex<VecDeque<BLEPacket>>> = Arc::new(Mutex::new(VecDeque::<BLEPacket>::new()));
     let queue_clone: Arc<Mutex<VecDeque<BLEPacket>>> = packet_queue.clone();
-    let running_clone_4hb: Arc<AtomicBool> = running.clone();
-    // system obj used to collect load & resource information
-    let mut system: System = System::new_all();
 
-    thread::spawn(move || { // start the heart beating
-        heartbeat::heartbeat(running_clone_4hb, queue_clone, &mut system);
-    });
-    info!("Successfully Spawned Hearbeat Thread.");
+    // start heartbeat
+    let hb_handle = tokio::spawn(heartbeat::heartbeat(queue_clone));
 
-    if !*config::TEST_MODE.get().unwrap() {
-        // capture packets, parse them, and periodically send to socket
-        parse_offload(running.clone(), packet_queue);
+    info!("Successfully Spawned Heartbeat Thread.");
+
+    // Start the packet parsing or test simulation task based on config
+    let main_task_handle = if !*config::TEST_MODE.get().unwrap() {
+        // Capture packets, parse them, and periodically send to socket
+        info!("NRF Packet Processing Started...");
+        tokio::spawn(parse_offload(packet_queue))
     } else {
-        info!("\nRunning in simulated test mode...");
-        test_simulation(running.clone(), packet_queue);
-    }   
-    info!("\n{} Sensor shut down.\n", LOG);
+        // Running in test mode
+        info!("Packet Simulation Started...");
+        tokio::spawn(test_simulation(packet_queue))
+    };
+
+    // Await main task and hb concurrently
+    let hb_result = hb_handle.await;
+    let main_task_result = main_task_handle.await;
+
+    // errors from the tasks
+    if let Err(e) = hb_result {
+        error!("Error in heartbeat task: {:?}", e);
+    }
+    if let Err(e) = main_task_result {
+        error!("Error in task (parse_offload or test_simulation): {:?}", e);
+    }
+
+    info!("{} All tasks halted safely. Sensor shut down.\n", LOG);
 }
     
