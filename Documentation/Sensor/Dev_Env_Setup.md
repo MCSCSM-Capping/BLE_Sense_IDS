@@ -37,8 +37,11 @@ Additional documentation can be found on [their site](https://docs.nordicsemi.co
 1. Set the settings to match the behavior you desire. The file comments will help!
 
 ### Running the sensor
-1. `Cargo run` will start the sniffer.
-2. The config.ini file (config/config.ini) contains settings for the sniffer to use. Alter this file to change the configuration. For example, if you want a pcapng capture file to be made, change 'PCAPNG' to 'TRUE'. By default, the sensor will print the packets it captures to the console.  
+1. The sensor has differnet logging levels. Ex: trace to see all packets, info to see just high level system messages.
+1. Run the sensor with your chosen log level: `RUST_LOG=info cargo run`
+1. Since the logging crate writes to stderr, you need to capture that as well if you are piping the output to a file.
+   1. Ex. `RUST_LOG=info cargo run > output.log 2>&1` 
+1. The config.ini file (config/config.ini) contains settings for the sniffer to use. Alter this file to change the configuration. For example, if you want a pcapng capture file to be made, change 'PCAPNG' to 'TRUE'.  
 
 
 
