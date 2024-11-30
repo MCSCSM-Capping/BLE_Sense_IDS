@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 
-
 class Company(models.Model):
     __tablename__ = "Companies"
     name = models.TextField()
@@ -48,7 +47,7 @@ class Scanner(models.Model):
         Company, on_delete=models.CASCADE, related_name="scanners"
     )
 
-    packets: models.QuerySet["Packet"] #One to many
+    packets: models.QuerySet["Packet"]  # One to many
 
 
 class Device(models.Model):
@@ -58,7 +57,7 @@ class Device(models.Model):
 class Packet(models.Model):
     __tablename__ = "Packets"
     advertising_address = models.TextField()
-    power_level = models.FloatField()       
+    power_level = models.FloatField()
     company_id = models.TextField()
     time_stamp = models.DateField()
     rssi = models.IntegerField()
@@ -68,15 +67,16 @@ class Packet(models.Model):
     malicious = models.BooleanField()
     long_name = models.TextField()
     oui = models.TextField()
-    device = models.ForeignKey(
-        Device, on_delete=models.CASCADE, related_name="packets")
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="packets")
 
     scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
+
 
 class Uuid(models.Model):
     __tablename__ = "UUIDs"
     uuid = models.IntegerField()
     device = models.ForeignKey(Device, on_delete=models.CASCADE)
+
 
 class User(models.Model):
     __tablename__ = "Users"
@@ -84,10 +84,12 @@ class User(models.Model):
     user_name = models.TextField()
     user_password = models.TextField()
 
+
 class Scans(models.Model):
     __tablename__ = "Scans"
     scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
     packet = models.ForeignKey(Packet, on_delete=models.CASCADE)
+
 
 class Heartbeat(models.Model):
     __tablename__ = "Heartbeats"
@@ -99,5 +101,6 @@ class Heartbeat(models.Model):
     serial_num = models.IntegerField()
     timestamp = models.DateField()
     total_cpu = models.FloatField()
-    disk_info = models.TextField() #Is this right?
+    disk_info = models.TextField()  # Is this right?
     queue_length = models.IntegerField()
+

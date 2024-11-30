@@ -2,16 +2,23 @@ from collection.models import *
 from client.models import *
 from channels.generic.websocket import WebsocketConsumer
 import io
+from collections import defaultdict
 import os
+from datetime import datetime
 from django.conf import settings
 import fastavro
 import json
 from typing import TypedDict
 import logging
 
+# some important constants for the algorithm
+BUFFER_SIZE_IN_SECONDS = 0.5
+# this is to ensure that stray packets do not get received as devices
+MIN_BUFFER_COUNT = 20
+
 
 class BLEPacketDict(TypedDict):
-    timestamp: float
+    timestamp: datetime
     rssi: int
     channel_index: int
     advertising_address: int
@@ -45,6 +52,7 @@ class SystemInfoDict(TypedDict):
     total_cpu_usage: float  # Total CPU usage as percentage
     disk_info: str  # disk info strings separated by commas
     packet_queue_length: int  # Length of packet queue
+    scanner: str
 
 
 class HeartbeatMessageDict(TypedDict):
@@ -73,7 +81,7 @@ def decode_packet_delivery(binary_data: bytes) -> PacketDeliveryDict:
     # data -> dataclass struct
     packets: list[BLEPacketDict] = [
         {
-            "timestamp": p["timestamp"],
+            "timestamp": datetime.fromtimestamp(p["timestamp"]),
             "rssi": p["rssi"],
             "channel_index": p["channel_index"],
             "advertising_address": p["advertising_address"],
@@ -119,6 +127,7 @@ def decode_heartbeat(binary_data: bytes) -> HeartbeatMessageDict:
         "total_cpu_usage": data["body"]["total_cpu_usage"],
         "disk_info": ", ".join(data["body"]["disk_info"]),
         "packet_queue_length": data["body"]["packet_queue_length"],
+        "scanner": data["serial"],
     }
 
     return {
@@ -129,9 +138,68 @@ def decode_heartbeat(binary_data: bytes) -> HeartbeatMessageDict:
     }
 
 
+@dataclass
+class BufferBacket:
+    packet_pk: int
+    timestamp: float
+    advertising_addres: float
+
+
+@dataclass
+class DeviceListing:
+    device_pk: int
+    last_timestamp: float
+
+
+@dataclass
+class AddressHueristic:
+    count: int
+    lastest_timestamp: float
+
+
+class PacketAnalysisBuffer:
+    def __init__(self) -> None:
+        # could look at using some better datastructures
+        self.packets_in_buffer: list[BufferBacket] = []
+        self.sorted_devices: list[DeviceListing] = []
+        self.hueristic_in_buffer: dict[str, AddressHueristic] = {}
+
+    def accept_packets(self, delivery: PacketDeliveryDict):
+        packets = list(map(lambda p: Packet(**p), delivery["packets"]))
+        insert_packets = Packet.objects.bulk_create(packets)
+        buffer_packets: list[BufferBacket] = []
+
+        for p in insert_packets:
+            hueristic = self.hueristic_in_buffer[p.advertising_address]
+            if hueristic is None:
+                hueristic = AddressHueristic(
+                    count=0, lastest_timestamp=p.time_stamp.timestamp()
+                )
+                self.hueristic_in_buffer[p.advertising_address] = hueristic
+            else:
+                hueristic.lastest_timestamp = p.time_stamp.timestamp()
+
+            hueristic.count += 1
+            buffer_packets.append(
+                BufferBacket(
+                    packet_pk=p.pk,
+                    advertising_addres=p.advertising_address,
+                    timestamp=p.time_stamp.timestamp(),
+                )
+            )
+
+        self.packets_in_buffer.extend(buffer_packets)
+
+    # this function will release packets from the buffer if need as well as
+    #    release devices that are no longer needed
+    def update(self):
+        pass
+
+
 class SendPacketsSocket(WebsocketConsumer):
     def connect(self):
         self.accept()
+        self.analysis: PacketAnalysisBuffer = PacketAnalysisBuffer()
 
     def disconnect(self, close_code):  # pyright: ignore
         pass
