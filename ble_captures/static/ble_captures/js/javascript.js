@@ -30,8 +30,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       })
   }
-fetchSysStatus();
- setInterval(fetchSysStatus, 10);
+//fetchSysStatus();
+// setInterval(fetchSysStatus, 10);
 });
 
 

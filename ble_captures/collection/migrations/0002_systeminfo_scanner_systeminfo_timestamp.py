@@ -7,7 +7,6 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('client', '0007_user'),
         ('collection', '0001_initial'),
     ]
 
