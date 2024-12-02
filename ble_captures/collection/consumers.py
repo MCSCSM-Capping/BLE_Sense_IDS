@@ -13,8 +13,7 @@ import logging
 
 # some important constants for the algorithm
 BUFFER_SIZE_IN_SECONDS = 0.5
-# this is to ensure that stray packets do not get received as devices
-MIN_BUFFER_COUNT = 20
+# MIN_BUFFER_COUNT = 20
 
 # cannot be longer than this
 MIN_TIME_TO_BE_RELATED = 0.1
