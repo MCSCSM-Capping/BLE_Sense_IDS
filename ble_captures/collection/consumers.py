@@ -16,6 +16,9 @@ BUFFER_SIZE_IN_SECONDS = 0.5
 # this is to ensure that stray packets do not get received as devices
 MIN_BUFFER_COUNT = 20
 
+# cannot be longer than this
+MIN_TIME_TO_BE_RELATED = 0.1
+
 
 class BLEPacketDict(TypedDict):
     timestamp: datetime
@@ -149,6 +152,7 @@ class BufferPacket:
 class DeviceListing:
     device_pk: int
     last_timestamp: float
+    lastest_address: str
 
 
 @dataclass
@@ -202,6 +206,51 @@ class PacketAnalysisBuffer:
 
     def place_packet(self, packet: BufferPacket):
         self.hueristic_in_buffer[packet.advertising_address].count -= 1
+        device = self.get_remove_device(packet)
+        #
+        current_time = datetime.now().timestamp()
+        device.last_timestamp = current_time
+        device.lastest_address = packet.advertising_address
+        self.sorted_devices.append(device)
+        packet_db = Packet.objects.get(packet.packet_pk)
+        packet_db.device = device.device_pk
+        packet_db.save()
+
+    # handles getting the packet listing and removing it from the current list
+    #  also will add one to the database if needed
+    def get_remove_device(self, packet: BufferPacket) -> DeviceListing:
+        index = self.get_device_index(packet.advertising_address)
+        if index is not None:
+            return self.sorted_devices.pop(index)
+        current_time = datetime.now().timestamp()
+        # look for the best link
+        i = -1
+        while (len(self.sorted_devices) >= abs(i)) and (
+            self.sorted_devices[i].last_timestamp
+            > current_time - MIN_TIME_TO_BE_RELATED
+        ):
+            if (
+                packet.advertising_address not in self.hueristic_in_buffer
+                or self.hueristic_in_buffer[packet.advertising_address].count <= 0
+            ):
+                # create a link
+                return self.sorted_devices.pop(i)
+            i -= 1
+        # create new device as there is no link
+        device_db = Device.objects.create()
+        device = DeviceListing(
+            device_pk=device_db.pk,
+            last_timestamp=current_time,
+            lastest_address=packet.advertising_address,
+        )
+        return device
+
+    # could implement a fastest search if you can sort by both
+    def get_device_index(self, address) -> int | None:
+        for i, device_listing in enumerate(self.sorted_devices):
+            if device_listing.lastest_address == address:
+                return i
+        return None
 
 
 class SendPacketsSocket(WebsocketConsumer):
