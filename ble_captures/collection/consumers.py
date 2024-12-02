@@ -139,10 +139,10 @@ def decode_heartbeat(binary_data: bytes) -> HeartbeatMessageDict:
 
 
 @dataclass
-class BufferBacket:
+class BufferPacket:
     packet_pk: int
     timestamp: float
-    advertising_addres: float
+    advertising_address: str
 
 
 @dataclass
@@ -160,14 +160,14 @@ class AddressHueristic:
 class PacketAnalysisBuffer:
     def __init__(self) -> None:
         # could look at using some better datastructures
-        self.packets_in_buffer: list[BufferBacket] = []
+        self.packets_in_buffer: list[BufferPacket] = []
         self.sorted_devices: list[DeviceListing] = []
         self.hueristic_in_buffer: dict[str, AddressHueristic] = {}
 
     def accept_packets(self, delivery: PacketDeliveryDict):
         packets = list(map(lambda p: Packet(**p), delivery["packets"]))
         insert_packets = Packet.objects.bulk_create(packets)
-        buffer_packets: list[BufferBacket] = []
+        buffer_packets: list[BufferPacket] = []
 
         for p in insert_packets:
             hueristic = self.hueristic_in_buffer[p.advertising_address]
@@ -181,9 +181,9 @@ class PacketAnalysisBuffer:
 
             hueristic.count += 1
             buffer_packets.append(
-                BufferBacket(
+                BufferPacket(
                     packet_pk=p.pk,
-                    advertising_addres=p.advertising_address,
+                    advertising_address=p.advertising_address,
                     timestamp=p.time_stamp.timestamp(),
                 )
             )
@@ -193,7 +193,15 @@ class PacketAnalysisBuffer:
     # this function will release packets from the buffer if need as well as
     #    release devices that are no longer needed
     def update(self):
-        pass
+        edge_time = datetime.now().timestamp() - BUFFER_SIZE_IN_SECONDS
+        while (
+            len(self.packets_in_buffer) == 0
+            and self.packets_in_buffer[-1].timestamp < edge_time
+        ):
+            self.place_packet(self.packets_in_buffer.pop())
+
+    def place_packet(self, packet: BufferPacket):
+        self.hueristic_in_buffer[packet.advertising_address].count -= 1
 
 
 class SendPacketsSocket(WebsocketConsumer):
