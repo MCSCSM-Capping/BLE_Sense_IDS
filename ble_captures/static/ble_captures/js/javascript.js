@@ -1,3 +1,42 @@
+//alerts dashboard tool
+document.addEventListener('DOMContentLoaded', function () {
+  function fetchSysStatus() {
+    const endpoint = '/api/sys-status';
+    fetch(endpoint)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Sys-status: Network response was not ok')
+        }
+        return response.json();
+      })
+      .then(data => {
+        // Get the current time
+        const now = new Date();
+
+        // Loop through the data and check timestamps
+        data.forEach(item => {
+          if (item.latest_timestamp) {
+            const timestamp = new Date(item.latest_timestamp);
+            const diffSeconds = (now - timestamp) / 1000; // Difference in seconds
+            if (diffSeconds > 60) {
+              console.log(item.name); // Log the name if timestamp is not within the last 60 seconds
+              document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> "+ item.name + " is offline since "+item.latest_timestamp +" </td>"
+            }
+          } else if(item.latest_timestamp == null) {
+            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> "+ item.name + " has not been set up </td>"
+          }
+          else{
+            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> "+ item.name + " is online </td>" 
+          }
+        });
+      })
+  }
+ fetchSysStatus();
+//  setInterval(fetchSysStatus, 10);
+});
+
+
+
 
 //dashboard line graph device count by category
 //-----------------------------------------
@@ -461,8 +500,8 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
       return response.json();
     })
     .then(data => { //response is ok 
-      console.log(data)
       /**
+      console.log(data)
        * fetch object structure
        * device_data = {
       "id": device.id,

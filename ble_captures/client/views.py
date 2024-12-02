@@ -310,7 +310,7 @@ def packets(request: HttpRequest, device_pk) -> HttpResponse:
 def dashboard(request: HttpRequest) -> HttpResponse:
     context = {
         "groups": Group.objects.all(),
-        "sensors": Scanner.objects.all(),
+        "scanners": Scanner.objects.all(),
     }
 
     return render(request, "dashboard.html", context=context)

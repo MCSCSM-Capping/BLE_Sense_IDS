@@ -12,7 +12,7 @@
     </div>
     <div class="row">
       <div class="col-lg-8 ">
-        <div class="card" style="min-height: 400px">
+        <div class="card" style="max-height: 400px">
           <div class="card-body">
             <h5 class="card-title">Current Devices</h5>
             <!-- Line Chart -->
@@ -25,9 +25,17 @@
       </div>
       <!--Alerts-->
       <div class="col-lg-4">
-        <div class="card" style="min-height: 400px">
+        <div class="card" style="max-height: 400px; overflow-y: auto;">
           <div class = "card-body">
             <h5 class="card-title">Alerts</h5>
+            <table class="table">
+              <tbody>
+                {%for scanner in scanners%}
+                <tr id="alert_{{scanner.id}}">
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -65,7 +73,7 @@
       </div>
       <div class="row">
         <div class="col-lg-6">
-          <div class="card">
+          <div class="card" style="min-height: 486px;">
             <div class="card-body">
               <h5 class=card-title>Top Vulnerable locations</h5>
               <div id="vulnerableLocations"></div>
@@ -75,7 +83,7 @@
         <div class="col-lg-6">
           <div class="card">
             <div class="card-body">
-              <h5 class=card-title>Total Attacks</h5>
+              <h5 class=card-title>Total Devices</h5>
               <canvas id="totalAttacks" style="max-height: 400px;"></canvas>
             </div>
           </div>
