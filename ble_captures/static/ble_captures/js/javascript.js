@@ -1,4 +1,4 @@
-//alerts dashboard tool
+//alerts dashboard tool for sensor status
 document.addEventListener('DOMContentLoaded', function () {
   function fetchSysStatus() {
     const endpoint = '/api/sys-status';
@@ -19,20 +19,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const timestamp = new Date(item.latest_timestamp);
             const diffSeconds = (now - timestamp) / 1000; // Difference in seconds
             if (diffSeconds > 60) {
-              console.log(item.name); // Log the name if timestamp is not within the last 60 seconds
               document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> "+ item.name + " is offline since "+item.latest_timestamp +" </td>"
             }
           } else if(item.latest_timestamp == null) {
             document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> "+ item.name + " has not been set up </td>"
           }
           else{
-            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> "+ item.name + " is online </td>" 
+            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> "+ item.name + " is online </td>"
           }
         });
       })
   }
- fetchSysStatus();
-//  setInterval(fetchSysStatus, 10);
+fetchSysStatus();
+ setInterval(fetchSysStatus, 10);
 });
 
 
@@ -56,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch(endpoint)
       .then(response => {
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          throw new Error('device-count: Network response was not ok');
         }
         return response.json();
       })
@@ -200,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(response => {
         if (!response.ok) {
           document.getElementById('systemMetrics').innerHTML = "<h2>Network Error</h2> Please choose a valid scanner";
-          throw new Error('Network response was not ok');
+          throw new Error('systemMetrics: Network response was not ok');
         }
         return response.json();
       })
@@ -388,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch(`${endpoint}?page=${page}`)
       .then(response => {
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          throw new Error('fetch-pkt-data: Network response was not ok');
         }
         return response.json();
       })
@@ -495,7 +494,7 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
   fetch(endpoint) //get data for all devices
     .then(response => {
       if (!response.ok) {
-        throw new Error('Netowrk response was not ok');
+        throw new Error('fetch-devices: Network response was not ok');
       }
       return response.json();
     })
@@ -609,7 +608,7 @@ function fetchDataAndUpdateChart() {
   fetch(endpoint)
     .then(response => {
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error('device-stats: Network response was not ok');
       }
       return response.json();
     })

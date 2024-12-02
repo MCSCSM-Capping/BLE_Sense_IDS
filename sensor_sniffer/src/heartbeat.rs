@@ -128,4 +128,3 @@ pub async fn heartbeat(packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
     }
     info!("Heartbeat Process Halted.");
 }
-
