@@ -1,8 +1,6 @@
 use std::{
     collections::VecDeque,
-    sync::atomic::{AtomicBool, Ordering},
-    sync::{Arc, Mutex},
-    thread,
+    sync::Arc,
     fmt::Write,
     time::{Duration, SystemTime, UNIX_EPOCH}
 };
@@ -10,19 +8,21 @@ use sysinfo::{
     Disks, Networks, System,
 };
 use serde::{Deserialize, Serialize};
+use tokio::{sync::Mutex, signal};
+use log::{trace, info};
 use crate::socket::send_heartbeat;
-use crate::config::{SERIAL_ID, HEARTBEAT_FREQ, LOGGING, BLEPacket};
+use crate::config::{SERIAL_ID, HEARTBEAT_FREQ, BLEPacket};
 
 const LOG: &str = "HB::LOG:";
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HeartbeatMessage {
     serial: u32,
     timestamp: String,
     body: SystemInfo,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[allow(dead_code)] // because we likely will never read the fields - just send it to API
 pub struct SystemInfo {
     total_memory: f32,                     // Total memory in GB
@@ -34,7 +34,7 @@ pub struct SystemInfo {
     network_info: Vec<NetworkInfo>, // (Interface name, Total received, Total transmitted)
     packet_queue_length: i32,              // Length of packet queue
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NetworkInfo {
     interface_name: String,
     total_received: u64,
@@ -86,29 +86,46 @@ fn gather_system_info(sys: &mut System, packet_queue_length: i32) -> SystemInfo 
     }
 }
 
-pub fn heartbeat(running: Arc<AtomicBool>, packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>, sys: &mut System) {
-    while running.load(Ordering::SeqCst) {
-        let queue_len: i32 = packet_queue.lock().unwrap().len() as i32;
-        // println!("Queue length: {}"queue_len);
-        let system_info: SystemInfo = gather_system_info(sys, queue_len);
+async fn beat_heart(packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>, sys: &mut System) {
+    let queue_len: i32 = packet_queue.lock().await.len() as i32;
+    let system_info: SystemInfo = gather_system_info(sys, queue_len);
 
-        let time: SystemTime = SystemTime::now();
-        let duration: Duration = time.duration_since(UNIX_EPOCH).unwrap();
-        let mut datetime: String = String::new();
-        write!(&mut datetime, "{}", duration.as_secs()).unwrap();
+    let time: SystemTime = SystemTime::now();
+    let duration: Duration = time.duration_since(UNIX_EPOCH).unwrap();
+    let mut datetime: String = String::new();
+    write!(&mut datetime, "{}", duration.as_secs()).unwrap();
 
-        let hb_msg: HeartbeatMessage = HeartbeatMessage {
-            serial: *SERIAL_ID.get().unwrap(),
-            timestamp: datetime,
-            body: system_info,
-        };
+    let hb_msg: HeartbeatMessage = HeartbeatMessage {
+        serial: *SERIAL_ID.get().unwrap(),
+        timestamp: datetime,
+        body: system_info,
+    };
 
-        if *LOGGING.get().unwrap() {
-            println!("{} Heartbeat Message: {:#?}", LOG, hb_msg);
+    trace!("{} Heartbeat Message: {:#?}", LOG, hb_msg);
+
+    // Spawn the task to send heartbeat
+    tokio::spawn(send_heartbeat(hb_msg));
+}
+
+pub async fn heartbeat(packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
+    // system obj used to collect load & resource information
+    let mut sys: System = System::new_all();
+    beat_heart(packet_queue.clone(), &mut sys).await; // inital beat on startup
+
+    loop {
+        tokio::select! {
+            // Sleep for the heartbeat interval
+            _ = tokio::time::sleep(Duration::from_secs(*HEARTBEAT_FREQ.get().unwrap())) => {
+                beat_heart(packet_queue.clone(), &mut sys).await;
+            }
+
+            // Handle Ctrl+C signal (to stop the heartbeat)
+            _ = signal::ctrl_c() => {
+                info!("Ctrl+C received by heartbeat.");
+                break; // Exit the loop when the interrupt signal is received
+            }
         }
-        send_heartbeat(hb_msg);
-
-        thread::sleep(Duration::from_secs(*HEARTBEAT_FREQ.get().unwrap()));
     }
+    info!("Heartbeat Process Halted.");
 }
 

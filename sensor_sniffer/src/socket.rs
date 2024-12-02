@@ -1,16 +1,20 @@
 use std::{
-    collections::VecDeque, sync::{Arc, Mutex},
+    collections::VecDeque, sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use apache_avro::Writer;
 use tungstenite::Message;
+use tokio::{time::sleep, sync::Mutex};
+use log::{info, warn};
 use crate::config::{
-    BLEPacket, PACKET_AVRO_SCHEMA, HB_AVRO_SCHEMA, BACKEND_SOCKET, BACKEND_WEBSOCKET_ENDPOINT, 
-    LOGGING, OFFLINE, PACKET_BUFFER_SIZE, SERIAL_ID
+    BLEPacket, PACKET_AVRO_SCHEMA, HB_AVRO_SCHEMA, BACKEND_SOCKET, BACKEND_WEBSOCKET_ENDPOINT,
+    OFFLINE, PACKET_BUFFER_SIZE, SERIAL_ID
 };
 use crate::heartbeat::HeartbeatMessage;
 
 const LOG: &str = "API::LOG:";
+const MAX_RETRIES: u64 = 3;
+const RETRY_DELAY_MS: u64 = 500;
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct PacketDelivery {
     pub serial_id: u32,
@@ -49,53 +53,79 @@ fn wrap_packet_delivery(packets: Vec<BLEPacket>) -> PacketDelivery {
     }
 }
 
-// release encoded packets to the websocket
-pub fn deliver_packets(queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
-    // create object to offload via socket - its the first PACKET_BUFFER_SIZE packets of the queue
+async fn send_with_retry(data: Vec<u8>) {
+    let mut retries: u64 = 0;
+
+    loop {
+        match try_send_message(data.clone()).await {
+            Ok(_) => {
+                info!("{} Offloaded {} items from queue to endpoint {}.", 
+                    LOG, 
+                    PACKET_BUFFER_SIZE.get().unwrap(), 
+                    *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap()
+                );
+                break;
+            }
+            Err(e) => {
+                retries += 1;
+                if retries >= MAX_RETRIES {
+                    warn!("Failed to send message after error: {} retries attempted: {}", MAX_RETRIES, e);
+                    break;
+                }
+                
+                // wait a little longer each time
+                sleep(Duration::from_millis(RETRY_DELAY_MS * retries)).await;
+            }
+        }
+    }
+}
+
+async fn try_send_message(data: Vec<u8>) -> Result<(), String> {
+    let mut socket = BACKEND_SOCKET
+        .get()
+        .ok_or("WebSocket not initialized!")?
+        .lock()
+        .map_err(|_| "Failed to lock the WebSocket!")?;
+
+    // Send the encoded message
+    socket
+        .send(Message::Binary(data))
+        .map_err(|e| format!("Failed to send binary message: {}", e))?;
+
+    Ok(())
+}
+
+pub async fn deliver_packets(queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
     let mut data_to_send: Vec<BLEPacket> = Vec::new();
+    
+    // Acquire lock and pop items
+    let mut queue_lock = queue.lock().await;
     for _ in 0..*PACKET_BUFFER_SIZE.get().expect("PACKET_BUFFER_SIZE is not initialized") as usize {
-        if let Some(item) = queue.lock().unwrap().pop_front() {
+        if let Some(item) = queue_lock.pop_front() {
             data_to_send.push(item);
         }
     }
 
+    // Drop the lock before proceeding
+    drop(queue_lock);
+
     if !*OFFLINE.get().unwrap() {
-        // Lock the Mutex to get mutable access to the WebSocket
-        let mut socket = BACKEND_SOCKET
-            .get()
-            .expect("WebSocket not initialized.")
-            .lock()
-            .expect("Failed to lock the WebSocket.");
-
         let delivery: PacketDelivery = wrap_packet_delivery(data_to_send);
-        let encoded_delivery: Vec<u8> = encode_to_packet_avro(delivery);
+        let encoded_delivery:Vec<u8> = encode_to_packet_avro(delivery);
 
-        socket
-            .send(Message::Binary(encoded_delivery))
-            .expect("Failed to send binary packet delivery!");
-    }
-
-    if *LOGGING.get().unwrap() {
-        println!("{} Offloaded {} items from queue to endpoint {}.", LOG, PACKET_BUFFER_SIZE.get().unwrap(), *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
+        send_with_retry(encoded_delivery).await;
     }
 }
 
-// deliver HB message
-pub fn send_heartbeat(hb_msg: HeartbeatMessage) {
+pub async fn send_heartbeat(hb_msg: HeartbeatMessage) {
     if !*OFFLINE.get().unwrap() {
-        let mut socket = BACKEND_SOCKET
-            .get()
-            .expect("WebSocket not initialized.")
-            .lock()
-            .expect("Failed to lock the WebSocket.");
-
         let encoded_msg: Vec<u8> = encode_to_hb_avro(hb_msg);
-        socket
-            .send(Message::Binary(encoded_msg))
-            .expect("Failed to send binary heartbeat message.");
+        
+        send_with_retry(encoded_msg).await;
 
-        if *LOGGING.get().unwrap() {
-            println!("{} Sent Heartbeat Message to endpoint: {}.", LOG, *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap());
-        }
+        info!("{} Sent Heartbeat Message to endpoint: {}.", 
+            LOG, 
+            *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap()
+        );
     }
 }
