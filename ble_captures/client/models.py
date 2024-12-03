@@ -64,11 +64,15 @@ class Packet(models.Model):
     channel_index = models.IntegerField()
     counter = models.IntegerField()
     protocol_version = models.IntegerField()
-    malicious = models.BooleanField()
+    malicious = models.BooleanField(default=False)
     long_name = models.TextField()
+    short_name = models.TextField()
     oui = models.TextField()
-    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="packets")
+    uuids = models.TextField()
 
+    device = models.ForeignKey(
+        Device, on_delete=models.CASCADE, related_name="packets", null=True
+    )
     scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
 
 
@@ -103,4 +107,3 @@ class Heartbeat(models.Model):
     total_cpu = models.FloatField()
     disk_info = models.TextField()  # Is this right?
     queue_length = models.IntegerField()
-

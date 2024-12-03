@@ -1,7 +1,8 @@
 from collection.models import *
 from client.models import *
 from channels.generic.websocket import WebsocketConsumer
-import io
+from io import BytesIO
+from fastavro._read_common import SchemaResolutionError
 from collections import defaultdict
 import os
 from datetime import datetime
@@ -20,18 +21,19 @@ MIN_TIME_TO_BE_RELATED = 0.1
 
 
 class BLEPacketDict(TypedDict):
-    timestamp: datetime
+    advertising_address: str
+    power_level: int
+    company_id: int
+    time_stamp: datetime
     rssi: int
     channel_index: int
-    advertising_address: int
-    company_id: int
-    packet_counter: int
-    protocol_version: int
-    power_level: int
+    counter: int
+    protocol_version: str
+    long_name: str
+    short_name: str
     oui: str
-    long_device_name: str
-    short_device_name: str
     uuids: str
+    scanner: Scanner
 
 
 class PacketDeliveryDict(TypedDict):
@@ -75,26 +77,38 @@ with open(
     HB_SCHEMA = json.load(hb_schema_file)
 
 
-def decode_packet_delivery(binary_data: bytes) -> PacketDeliveryDict:
-    bytes_reader = io.BytesIO(binary_data)
+def get_or_create_scanner(scanner_id) -> Scanner:
+    scanner = Scanner.objects.filter(id=scanner_id).first()
+    if scanner is not None:
+        return scanner
+
+    group = Group.objects.create(name="Auto generated group")
+    company = Company.objects.create(name="Auto generated company")
+
+    return Scanner.objects.create(group=group, company=company)
+
+
+def decode_packet_delivery(bytes_reader: BytesIO) -> PacketDeliveryDict:
     reader = fastavro.reader(bytes_reader, PACKET_SCHEMA)
     data: dict = next(reader)  # pyright: ignore
 
+    scanner = get_or_create_scanner(data["serial_id"])
     # data -> dataclass struct
     packets: list[BLEPacketDict] = [
         {
-            "timestamp": datetime.fromtimestamp(p["timestamp"]),
+            "advertising_address": p["advertising_address"],
+            "power_level": p["power_level"],
+            "company_id": p["company_id"],
+            "time_stamp": datetime.fromtimestamp(p["timestamp"]),
             "rssi": p["rssi"],
             "channel_index": p["channel_index"],
-            "advertising_address": p["advertising_address"],
-            "company_id": p["company_id"],
-            "packet_counter": p["packet_counter"],
+            "counter": p["packet_counter"],
             "protocol_version": p["protocol_version"],
-            "power_level": p["power_level"],
+            "long_name": p["long_device_name"],
+            "short_name": p["short_device_name"],
             "oui": p["oui"],
-            "long_device_name": p["long_device_name"],
-            "short_device_name": p["short_device_name"],
             "uuids": p["uuids"],
+            "scanner": scanner,
         }
         for p in data["packets"]
     ]
@@ -106,8 +120,7 @@ def decode_packet_delivery(binary_data: bytes) -> PacketDeliveryDict:
     }
 
 
-def decode_heartbeat(binary_data: bytes) -> HeartbeatMessageDict:
-    bytes_reader = io.BytesIO(binary_data)
+def decode_heartbeat(bytes_reader: BytesIO) -> HeartbeatMessageDict:
     reader = fastavro.reader(bytes_reader, HB_SCHEMA)
     data: dict = next(reader)  # pyright: ignore
 
@@ -168,12 +181,13 @@ class PacketAnalysisBuffer:
         self.hueristic_in_buffer: dict[str, AddressHueristic] = {}
 
     def accept_packets(self, delivery: PacketDeliveryDict):
+        logging.info("Accpeting packets")
         packets = list(map(lambda p: Packet(**p), delivery["packets"]))
         insert_packets = Packet.objects.bulk_create(packets)
         buffer_packets: list[BufferPacket] = []
 
         for p in insert_packets:
-            hueristic = self.hueristic_in_buffer[p.advertising_address]
+            hueristic = self.hueristic_in_buffer.get(p.advertising_address)
             if hueristic is None:
                 hueristic = AddressHueristic(
                     count=0, lastest_timestamp=p.time_stamp.timestamp()
@@ -192,10 +206,13 @@ class PacketAnalysisBuffer:
             )
 
         self.packets_in_buffer.extend(buffer_packets)
+        self.update()
 
+    # could call this function more often
     # this function will release packets from the buffer if need as well as
     #    release devices that are no longer needed
     def update(self):
+        logging.info("Updating packet")
         edge_time = datetime.now().timestamp() - BUFFER_SIZE_IN_SECONDS
         while (
             len(self.packets_in_buffer) == 0
@@ -204,9 +221,9 @@ class PacketAnalysisBuffer:
             self.place_packet(self.packets_in_buffer.pop())
 
     def place_packet(self, packet: BufferPacket):
+        logging.info("Placing a packet")
         self.hueristic_in_buffer[packet.advertising_address].count -= 1
         device = self.get_remove_device(packet)
-        #
         current_time = datetime.now().timestamp()
         device.last_timestamp = current_time
         device.lastest_address = packet.advertising_address
@@ -218,6 +235,7 @@ class PacketAnalysisBuffer:
     # handles getting the packet listing and removing it from the current list
     #  also will add one to the database if needed
     def get_remove_device(self, packet: BufferPacket) -> DeviceListing:
+        # always link to the same mac address
         index = self.get_device_index(packet.advertising_address)
         if index is not None:
             return self.sorted_devices.pop(index)
@@ -228,9 +246,10 @@ class PacketAnalysisBuffer:
             self.sorted_devices[i].last_timestamp
             > current_time - MIN_TIME_TO_BE_RELATED
         ):
-            if (
-                packet.advertising_address not in self.hueristic_in_buffer
-                or self.hueristic_in_buffer[packet.advertising_address].count <= 0
+            # if there is more packets in the buffer with the canidate link then that means
+            #   it is not a link because the device did not change mac address
+            if packet.advertising_address not in self.hueristic_in_buffer or not (
+                self.hueristic_in_buffer[packet.advertising_address].count > 0
             ):
                 # create a link
                 return self.sorted_devices.pop(i)
@@ -261,15 +280,46 @@ class SendPacketsSocket(WebsocketConsumer):
         pass
 
     def receive(self, bytes_data):  # pyright: ignore
+        bytes_reader = BytesIO(bytes_data)
         # print(bytes_data)
         logging.info("Received Transmission")
-        # there might be a better way to decied which one is which
+        # # valid does not work for some reason
+        # if fastavro.validate(
+        #     BytesIO(bytes_data), PACKET_SCHEMA, raise_errors=False, strict=False
+        # ):
+        #     logging.info("Recieved Packet Message")
+        #     packet_delivery = decode_packet_delivery(bytes_reader)
+        #     logging.info("First deserialized packet from delivery: ")
+        #     logging.info(packet_delivery["packets"][0])
+        # elif fastavro.validate(
+        #     BytesIO(bytes_data), HB_SCHEMA, raise_errors=False, strict=False
+        # ):
+        #     logging.info("Recieved HB message")
+        #     hb_msg = decode_heartbeat(bytes_reader)
+        #     system_info = SystemInfo(**hb_msg["body"])
+        #     system_info.save()
+        #     network_information = hb_msg["network_info"]
+        #     network_objs = [
+        #         NetworkInfo(**n, system_info=system_info) for n in network_information
+        #     ]
+        #     NetworkInfo.objects.bulk_create(network_objs)
+        # else:
+        #     logging.error("Failed to validate either schema")
         try:
-            packet_delivery = decode_packet_delivery(bytes_data)
-            logging.info("First deserialized packet from delivery: ")
-            logging.info(packet_delivery["packets"][0])
-        except:
-            hb_msg = decode_heartbeat(bytes_data)
+            logging.info("Recieved Packet Message")
+            packet_delivery = decode_packet_delivery(bytes_reader)
+            logging.info(
+                f"First deserialized packet from delivery: {packet_delivery["packets"][0]}"
+            )
+            self.analysis.accept_packets(packet_delivery)
+        except (ValueError, SchemaResolutionError) as e:
+            logging.info(f"Failed loading as packets {e}")
+            logging.info("Recieved HB message")
+            try:
+                hb_msg = decode_heartbeat(bytes_reader)
+            except (ValueError, SchemaResolutionError) as e:
+                logging.error(f"Failed to validate either schema HR error: {e}")
+                return
             system_info = SystemInfo(**hb_msg["body"])
             system_info.save()
             network_information = hb_msg["network_info"]
@@ -277,5 +327,3 @@ class SendPacketsSocket(WebsocketConsumer):
                 NetworkInfo(**n, system_info=system_info) for n in network_information
             ]
             NetworkInfo.objects.bulk_create(network_objs)
-            logging.info("Recieved HB message")
-            logging.info("")
