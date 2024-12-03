@@ -11,12 +11,12 @@ This document describes how the sensor works.
 6. We also open the websocket connection to the backend to use later.
 7. Finally, we detect what port the dongle is on.
    1. This is accomplished by using the `nrfurtil device list` command.
-8. Simply update the settings in the config.ini to change the program's behavior. For example, switching logging to FALSE or PCAPNG to TRUE to get a pcapng copy of the data.
+8. Simply update the settings in the config.ini to change the program's behavior. For example, switching OFFLINE to TRUE or PCAPNG to TRUE to get a pcapng copy of the data.
 
 ### Running the sniffer
-1. First, we create an atomic boolean that tells the program to stop (leave the infinite loop). This way, we can handle interrupts or stop the program when needed but still have our endless reading and parsing loop.
-2. Next, we start the heartbeat process in another thread.
-3. We then call the function that does our sniffing work (either the simulated test mode or real capture).
+1. First, we initialize the logger and load the config.
+2. Next, we start the heartbeat process.
+3. We then async call the function that does our sniffing work (either the simulated test mode or real capture).
    1. Test Mode: Simply generates random packets (using rand, the data should largely still be valid though).
    2. At a set interval it simulates another packet and adds it to the queue.
    3. All other behavior is the same!
@@ -28,6 +28,6 @@ This document describes how the sensor works.
 2. Advertising data takes an extra step. We use regex to get the hex data (given to us in decimal for some reason). Then, we iterate though it and attempt to extract data from it based on hex indicators. (For example, if we see a 0xFF in a certain position, company ID follows).
 
 ### Heartbeat 
-1. The heartbeat message is spawned in its own thread. 
+1. The heartbeat messages are managed independently by an async process that never rejoins main until an interrupt is received. 
 2. The message reports to the backend how the sensor is doing (CPU, RAM, Queue length, etc.)
 3. It should work on both linux and windows. The queue is borrowed using a mutex to avoid thread issues.

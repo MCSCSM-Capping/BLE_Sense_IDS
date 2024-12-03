@@ -1,3 +1,41 @@
+//alerts dashboard tool for sensor status
+document.addEventListener('DOMContentLoaded', function () {
+  function fetchSysStatus() {
+    const endpoint = '/api/sys-status';
+    fetch(endpoint)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Sys-status: Network response was not ok')
+        }
+        return response.json();
+      })
+      .then(data => {
+        // Get the current time
+        const now = new Date();
+
+        // Loop through the data and check timestamps
+        data.forEach(item => {
+          if (item.latest_timestamp) {
+            const timestamp = new Date(item.latest_timestamp);
+            const diffSeconds = (now - timestamp) / 1000; // Difference in seconds
+            if (diffSeconds > 60) {
+              document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> "+ item.name + " is offline since "+item.latest_timestamp +" </td>"
+            }
+          } else if(item.latest_timestamp == null) {
+            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> "+ item.name + " has not been set up </td>"
+          }
+          else{
+            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> "+ item.name + " is online </td>"
+          }
+        });
+      })
+  }
+fetchSysStatus();
+setInterval(fetchSysStatus, 60000);
+});
+
+
+
 
 //dashboard line graph device count by category
 //-----------------------------------------
@@ -17,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch(endpoint)
       .then(response => {
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          throw new Error('device-count: Network response was not ok');
         }
         return response.json();
       })
@@ -161,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(response => {
         if (!response.ok) {
           document.getElementById('systemMetrics').innerHTML = "<h2>Network Error</h2> Please choose a valid scanner";
-          throw new Error('Network response was not ok');
+          throw new Error('systemMetrics: Network response was not ok');
         }
         return response.json();
       })
@@ -349,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch(`${endpoint}?page=${page}`)
       .then(response => {
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          throw new Error('fetch-pkt-data: Network response was not ok');
         }
         return response.json();
       })
@@ -456,13 +494,13 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
   fetch(endpoint) //get data for all devices
     .then(response => {
       if (!response.ok) {
-        throw new Error('Netowrk response was not ok');
+        throw new Error('fetch-devices: Network response was not ok');
       }
       return response.json();
     })
     .then(data => { //response is ok 
-      console.log(data)
       /**
+      console.log(data)
        * fetch object structure
        * device_data = {
       "id": device.id,
@@ -570,7 +608,7 @@ function fetchDataAndUpdateChart() {
   fetch(endpoint)
     .then(response => {
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error('device-stats: Network response was not ok');
       }
       return response.json();
     })
