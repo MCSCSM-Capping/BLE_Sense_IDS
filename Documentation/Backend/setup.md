@@ -12,3 +12,5 @@
     - `python manage.py migrate`
 - run the server
     - `python manage.py runserver`
+    - `python manage.py runserver 0.0.0.0:8000` to run it internet facing
+      - This will use your IP address with the port specified.
