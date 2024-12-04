@@ -20,8 +20,6 @@ extern crate hex;
 #[macro_use]
 extern crate ini;
 
-const LOG: &str = "MAIN::LOG:";
-
 // Starts the NRFutil ble-sniffer tool for capturing BLE packets
 fn start_nrf_sniffer() -> Child {
     let pcapng_redirect: &str;
@@ -49,7 +47,7 @@ fn start_nrf_sniffer() -> Child {
         .stdout(Stdio::piped()) // pipe stdout so rust can capture and process it
         .spawn() // spawn the process
         .expect("Failed to start nrfutil.");
-    info!("{} nrfSniffer started with PID: {}", LOG, sniffer.id());
+    info!("nrfSniffer started with PID: {}", sniffer.id());
     return sniffer; // return process so we can reference it later
 }
 
@@ -62,7 +60,7 @@ async fn parse_offload(packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
     {
         let r: Arc<AtomicBool> = running.clone();
         ctrlc::set_handler(move || {
-            info!("{} Ctrl+C Interrupt Received, shutting down...", LOG);
+            info!("Ctrl+C Interrupt received by main handler, shutting down...");
             r.store(false, Ordering::SeqCst);
         })
         .expect("Error setting Ctrl-C handler");
@@ -82,7 +80,7 @@ async fn parse_offload(packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
                 if line.contains("Parsed packet") {
                     let parsed_ble_packet: config::BLEPacket = packet_parser::parse_ble_packet(&line); 
                                         
-                    trace!("\n\n{}{}{:#?}\n", LOG, line, parsed_ble_packet);
+                    trace!("\n\n{}{:#?}\n", line, parsed_ble_packet);
                     // Lock once for both push_back and checking the size
                     let mut locked_queue = packet_queue.lock().await;
 
@@ -114,7 +112,7 @@ async fn test_simulation(packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
             _ = tokio::time::sleep(DELAY) => {
                 let simulated_packet: BLEPacket = generate_random_packet();
 
-                trace!("\n\n{}{:#?}\n", LOG, simulated_packet);
+                trace!("\n\n{:#?}\n", simulated_packet);
 
                 // Lock the queue and push the new simulated packet
                 let mut locked_queue = packet_queue.lock().await;
@@ -145,10 +143,10 @@ async fn main() {
     // initialize logger
     env_logger::init();
 
-    info!("{} Loading Sensor Configuration...", LOG);
+    info!("Loading Sensor Configuration...");
     config::load_config();
 
-    info!("{} Starting Sensor (Serial: {})!", LOG, config::SERIAL_ID.get().unwrap());
+    info!("Starting Sensor (Serial: {})!", config::SERIAL_ID.get().unwrap());
 
     let packet_queue: Arc<Mutex<VecDeque<BLEPacket>>> = Arc::new(Mutex::new(VecDeque::<BLEPacket>::new()));
     let queue_clone: Arc<Mutex<VecDeque<BLEPacket>>> = packet_queue.clone();
@@ -181,6 +179,6 @@ async fn main() {
         error!("Error in task (parse_offload or test_simulation): {:?}", e);
     }
 
-    info!("{} All tasks halted safely. Sensor shut down.\n", LOG);
+    info!("All tasks halted safely. Sensor shut down.\n");
 }
     

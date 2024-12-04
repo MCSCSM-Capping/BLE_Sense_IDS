@@ -13,8 +13,6 @@ use log::{trace, info};
 use crate::socket::send_heartbeat;
 use crate::config::{SERIAL_ID, HEARTBEAT_FREQ, BLEPacket};
 
-const LOG: &str = "HB::LOG:";
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HeartbeatMessage {
     serial: u32,
@@ -101,7 +99,7 @@ async fn beat_heart(packet_queue: Arc<Mutex<VecDeque<BLEPacket>>>, sys: &mut Sys
         body: system_info,
     };
 
-    trace!("{} Heartbeat Message: {:#?}", LOG, hb_msg);
+    trace!("Heartbeat Message: {:#?}", hb_msg);
 
     // Spawn the task to send heartbeat
     tokio::spawn(send_heartbeat(hb_msg));

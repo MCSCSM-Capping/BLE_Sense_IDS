@@ -12,7 +12,6 @@ use crate::config::{
 };
 use crate::heartbeat::HeartbeatMessage;
 
-const LOG: &str = "API::LOG:";
 const MAX_RETRIES: u64 = 3;
 const RETRY_DELAY_MS: u64 = 500;
 #[derive(Debug, Clone, serde::Serialize)]
@@ -53,24 +52,19 @@ fn wrap_packet_delivery(packets: Vec<BLEPacket>) -> PacketDelivery {
     }
 }
 
-async fn send_with_retry(data: Vec<u8>) {
+async fn send_with_retry(data: Vec<u8>, delivery_type: &str) -> bool {
     let mut retries: u64 = 0;
 
     loop {
         match try_send_message(data.clone()).await {
             Ok(_) => {
-                info!("{} Offloaded {} items from queue to endpoint {}.", 
-                    LOG, 
-                    PACKET_BUFFER_SIZE.get().unwrap(), 
-                    *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap()
-                );
-                break;
+                return true;
             }
             Err(e) => {
                 retries += 1;
                 if retries >= MAX_RETRIES {
-                    warn!("Failed to send message after error: {} retries attempted: {}", MAX_RETRIES, e);
-                    break;
+                    warn!("Failed to send {} after error: {} retries attempted: {}", delivery_type, MAX_RETRIES, e);
+                    return false;
                 }
                 
                 // wait a little longer each time
@@ -113,7 +107,13 @@ pub async fn deliver_packets(queue: Arc<Mutex<VecDeque<BLEPacket>>>) {
         let delivery: PacketDelivery = wrap_packet_delivery(data_to_send);
         let encoded_delivery:Vec<u8> = encode_to_packet_avro(delivery);
 
-        send_with_retry(encoded_delivery).await;
+        let delivery_success: bool = send_with_retry(encoded_delivery, "packet delivery").await;
+        if delivery_success {
+            info!("Offloaded {} items from queue to endpoint {}.", 
+                PACKET_BUFFER_SIZE.get().unwrap(), 
+                *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap()
+            );
+        }
     }
 }
 
@@ -121,11 +121,11 @@ pub async fn send_heartbeat(hb_msg: HeartbeatMessage) {
     if !*OFFLINE.get().unwrap() {
         let encoded_msg: Vec<u8> = encode_to_hb_avro(hb_msg);
         
-        send_with_retry(encoded_msg).await;
-
-        info!("{} Sent Heartbeat Message to endpoint: {}.", 
-            LOG, 
-            *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap()
-        );
+        let delivery_sucess: bool = send_with_retry(encoded_msg, "heartbeat").await;
+        if delivery_sucess {
+            info!("Sent Heartbeat Message to endpoint: {}.",  
+                *BACKEND_WEBSOCKET_ENDPOINT.get().unwrap()
+            );
+        }
     }
 }

@@ -30,8 +30,6 @@ pub static TEST_MODE: OnceLock<bool> = OnceLock::new();
 pub static BACKEND_SOCKET: OnceLock<Mutex<WebSocket<MaybeTlsStream<TcpStream>>>> = OnceLock::new();
 pub static OFFLINE: OnceLock<bool> = OnceLock::new();
 
-const LOG: &str = "CONFIG::LOG:";
-
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BLEPacket {
     pub timestamp: f64,                // Packet timestamp in seconds
@@ -123,7 +121,7 @@ pub fn load_config() {
         .set(map["settings"]["offline"].clone().unwrap().to_lowercase().as_str().parse::<bool>().unwrap())
         .unwrap();
 
-    trace!("{} INI Settings Imported...", LOG);
+    trace!("INI Settings Imported...");
 
     // load the avro schema into a schema obj for serialization
     let mut packet_schema_file: File = File::open(PACKET_AVRO_SCHEMA_PATH).expect("Unable to open packet avro schema file");
@@ -133,7 +131,7 @@ pub fn load_config() {
     PACKET_AVRO_SCHEMA
         .set(packet_schema)
         .unwrap();
-    trace!("{} Packet Avro Schema Loaded...", LOG);
+    trace!("Packet Avro Schema Loaded...");
 
     let mut hb_schema_file: File = File::open(HB_AVRO_SCHEMA_PATH).expect("Unable to open heartbeat avro schema file");
     let mut hb_schema_str: String = String::new();
@@ -142,13 +140,13 @@ pub fn load_config() {
     HB_AVRO_SCHEMA
         .set(hb_schema)
         .unwrap();
-    trace!("{} Heartbeat Avro Schema Loaded...", LOG);
+    trace!("Heartbeat Avro Schema Loaded...");
 
     // load the OUI map so we can provide that information
     if OUI_MAP.set(parse_oui_file(OUI_LOOKUP_PATH).unwrap()).is_err() {
         error!("Failed to initialize OUI map");
     } else {
-        trace!("{} OUI Lookup Parsed...", LOG);
+        trace!("OUI Lookup Parsed...");
     }
 
     if !*OFFLINE.get().unwrap() {
@@ -166,6 +164,6 @@ pub fn load_config() {
         INTERFACE
             .set(get_interface())
             .unwrap();
-        info!("{} NRF Dongle detected on port: {}", LOG, INTERFACE.get().unwrap());
+        info!("NRF Dongle detected on port: {}", INTERFACE.get().unwrap());
     }
 }
