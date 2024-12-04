@@ -1,6 +1,7 @@
 This document describes how the sensor works.
 
 # Sensor Documentation
+![Sensor Dataflow](./Sensor%20Dataflow.png)
 
 ### Loading Configuration Data
 1. The program begins in main(). The first thing we do is load_config().
