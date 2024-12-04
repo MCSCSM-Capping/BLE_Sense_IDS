@@ -12,13 +12,6 @@
 :root {
   scroll-behavior: smooth;
 }
-
-#packetsTableContainer .handsontable .ht_clone_top thead th {
-  background-color: #ffffff !important; /* Set header background to white */
-  color: black !important; /* Keep text color black for visibility */
-  font-weight: bold; /* Optional: Make header text bold */
-}
-
 /* Set font properties for all cells */
 #packetsTableContainer .handsontable .htCore th,
 #packetsTableContainer .handsontable .htCore td {
@@ -26,38 +19,49 @@
   font-size: 16px !important; /* Adjust font size as needed */
   color: black !important;
 }
-
+/* Set alternating row colors */
+#packetsTableContainer .handsontable .htCore tr:nth-child(odd) td {
+  background-color: #f0f0f0;
+}
 /* Remove gridlines */
 #packetsTableContainer .handsontable .htCore td,
 #packetsTableContainer .handsontable .htCore th {
   border: none !important;
 }
-
-/* Set alternating row colors */
-#packetsTableContainer .handsontable .htCore tr:nth-child(odd) td {
-  background-color: #f9f9f9;
+#packetsTableContainer .handsontable .ht_clone_top thead th {
+  background-color: #ffffff !important; /* Set header background to white */
+  color: black !important; /* Keep text color black for visibility */
+  font-weight: bold; /* Optional: Make header text bold */
 }
 
-#packetsTableContainer .handsontable .htCore tr:nth-child(even) td {
-  background-color: #ffffff;
+/*change appearance of filter buttons*/
+.handsontable .htFiltersActive .changeType {
+  background-color: #eeff00;
+  border: 1px solid #000000;
+  color: #000000;
 }
+/*icon styling */
+.error-icon {
+  color: red;
+  border-radius: 50%;
+  display: inline-block; 
+}
+
+.ok-icon{
+  color: green;
+  border-radius: 50%;
+  display: inline-block; 
+}
+
+.warning-icon {
+  color: yellow;
+  border-radius: 50%;
+  display: inline-block; 
+}
+
 
 /*device tables----*/
 
-.handsontable.customFilterButtonExample1 .changeType {
-  background: #e2e2e2;
-  border-radius: 100%;
-  width: 16px;
-  color: #0075ff !important;
-  height: 16px;
-  padding: 3px 2px;
-  border: none;
-}
-
-.handsontable.customFilterButtonExample1 .changeType::before {
-  content: '▼ ';
-  zoom: 0.9;
-}
 
 #deviceTableContainer .handsontable .ht_clone_top thead th {
   background-color: #ffffff !important; /* Set header background to white */
@@ -142,39 +146,6 @@ h6 {
   margin-bottom: 0;
   font-weight: 600;
   color: #012970;
-}
-
-/*--------------------------------------------------------------
-# Back to top button
---------------------------------------------------------------*/
-.back-to-top {
-  position: fixed;
-  visibility: hidden;
-  opacity: 0;
-  right: 15px;
-  bottom: 15px;
-  z-index: 99999;
-  background: #4154f1;
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
-  transition: all 0.4s;
-}
-
-.back-to-top i {
-  font-size: 24px;
-  color: #fff;
-  line-height: 0;
-}
-
-.back-to-top:hover {
-  background: #6776f4;
-  color: #fff;
-}
-
-.back-to-top.active {
-  visibility: visible;
-  opacity: 1;
 }
 
 /*--------------------------------------------------------------

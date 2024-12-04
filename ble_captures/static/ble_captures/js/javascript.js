@@ -1,5 +1,44 @@
+//alerts dashboard tool for sensor status
+document.addEventListener('DOMContentLoaded', function () {
+  function fetchSysStatus() {
+    const endpoint = '/api/sys-status';
+    fetch(endpoint)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Sys-status: Network response was not ok')
+        }
+        return response.json();
+      })
+      .then(data => {
+        // Get the current time
+        const now = new Date();
+
+        // Loop through the data and check timestamps
+        data.forEach(item => {
+          if (item.latest_timestamp) {
+            const timestamp = new Date(item.latest_timestamp);
+            const diffSeconds = (now - timestamp) / 1000; // Difference in seconds
+            if (diffSeconds > 60) {
+              document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> "+ item.name + " is offline since "+item.latest_timestamp +" </td>"
+            }
+          } else if(item.latest_timestamp == null) {
+            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> "+ item.name + " has not been set up </td>"
+          }
+          else{
+            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> "+ item.name + " is online </td>"
+          }
+        });
+      })
+  }
+fetchSysStatus();
+setInterval(fetchSysStatus, 60000);
+});
+
+
+
 
 //dashboard line graph device count by category
+//-----------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
   var chartDom = document.getElementById('deviceCount');
   var myChart = echarts.init(chartDom);
@@ -16,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch(endpoint)
       .then(response => {
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          throw new Error('device-count: Network response was not ok');
         }
         return response.json();
       })
@@ -134,13 +173,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Set the initial chart option
   myChart.setOption(option);
-  
+
   // Fetch data every 60 seconds
   fetchDeviceCount(); // Initial fetch
   setInterval(fetchDeviceCount, 10000);
 });
+//-----------------------------------------
 
 // Scanner System Metrics
+//-----------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
   var chartDom = document.getElementById('systemMetrics');
   var myChart = echarts.init(chartDom);
@@ -157,89 +198,94 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch(endpoint)
       .then(response => {
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          document.getElementById('systemMetrics').innerHTML = "<h2>Network Error</h2> Please choose a valid scanner";
+          throw new Error('systemMetrics: Network response was not ok');
         }
         return response.json();
       })
       .then(data => {
         console.log(data);
-
-        let now = new Date(); // Current time for x-axis
-
-        // Add the new data point to the respective arrays
-        timeData.push(now.toLocaleTimeString());
-        memoryData.push(data.mem_perc);
-        swapData.push(data.swap_perc);
-        cpuData.push(data.total_cpu);
-
-        // Retain only the last 100 data points
-        if (timeData.length > 100) {
-          timeData.shift();
-          memoryData.shift();
-          swapData.shift();
-          cpuData.shift();
+        if (data.error) {
+          document.getElementById('systemMetrics').innerHTML = "<h2>ERROR: THIS SENSOR IS OFFLINE.</h2> The last heartbeat was detected at " + data.time + ".";
         }
+        else {
+          let now = new Date(); // Current time for x-axis
 
-        // Update the chart with the latest data
-        myChart.setOption({
-          tooltip: {
-            trigger: 'axis',
-            formatter: function (params) {
-              let tooltip = params[0].name + '<br/>';
-              params.forEach(param => {
-                tooltip += `${param.seriesName}: ${param.value}%<br/>`;
-              });
-              return tooltip;
-            }
-          },
-          xAxis: {
-            type: 'category',
-            boundaryGap: false,
-            data: timeData // Use the updated time data
-          },
-          yAxis: {
-            type: 'value',
-            boundaryGap: [0, '100%'],
-            minInterval: 1,
-            splitLine: {
-              show: false
-            },
-            axisLabel: {
-              formatter: '{value}%' // Show percentage on the y-axis
-            }
-          },
-          series: [
-            {
-              name: 'Memory Usage (%)',
-              type: 'line',
-              data: memoryData, // Use the updated memory data
-              color: 'green',
-              smooth: true
-            },
-            {
-              name: 'Swap Usage (%)',
-              type: 'line',
-              data: swapData, // Use the updated swap data
-              color: 'orange',
-              smooth: true
-            },
-            {
-              name: 'CPU Usage (%)',
-              type: 'line',
-              data: cpuData, // Use the updated CPU data
-              color: 'blue',
-              smooth: true
-            }
-          ],
-          legend: {
-            data: ['Memory Usage (%)', 'Swap Usage (%)', 'CPU Usage (%)'],
-            bottom: 'bottom',
-            textStyle: {
-              color: '#000',
-              fontSize: 14
-            }
+          // Add the new data point to the respective arrays
+          timeData.push(now.toLocaleTimeString());
+          memoryData.push(data.mem_perc);
+          swapData.push(data.swap_perc);
+          cpuData.push(data.total_cpu);
+
+          // Retain only the last 100 data points
+          if (timeData.length > 100) {
+            timeData.shift();
+            memoryData.shift();
+            swapData.shift();
+            cpuData.shift();
           }
-        });
+
+          // Update the chart with the latest data
+          myChart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              formatter: function (params) {
+                let tooltip = params[0].name + '<br/>';
+                params.forEach(param => {
+                  tooltip += `${param.seriesName}: ${param.value}%<br/>`;
+                });
+                return tooltip;
+              }
+            },
+            xAxis: {
+              type: 'category',
+              boundaryGap: false,
+              data: timeData // Use the updated time data
+            },
+            yAxis: {
+              type: 'value',
+              boundaryGap: [0, '100%'],
+              minInterval: 1,
+              splitLine: {
+                show: false
+              },
+              axisLabel: {
+                formatter: '{value}%' // Show percentage on the y-axis
+              }
+            },
+            series: [
+              {
+                name: 'Memory Usage (%)',
+                type: 'line',
+                data: memoryData, // Use the updated memory data
+                color: 'green',
+                smooth: true
+              },
+              {
+                name: 'Swap Usage (%)',
+                type: 'line',
+                data: swapData, // Use the updated swap data
+                color: 'orange',
+                smooth: true
+              },
+              {
+                name: 'CPU Usage (%)',
+                type: 'line',
+                data: cpuData, // Use the updated CPU data
+                color: 'blue',
+                smooth: true
+              }
+            ],
+            legend: {
+              data: ['Memory Usage (%)', 'Swap Usage (%)', 'CPU Usage (%)'],
+              bottom: 'bottom',
+              textStyle: {
+                color: '#000',
+                fontSize: 14
+              }
+            }
+          });
+        }
       })
       .catch(error => {
         console.error('Fetch error:', error);
@@ -312,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchSystemMetrics(scannerID);
   }, 10000); // Update every 10 seconds
 });
-
+//-----------------------------------------
 
 
 
@@ -325,6 +371,7 @@ const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => {
 
 
 //packets table
+//-----------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
 
   const deviceElement = document.getElementById("device-data");
@@ -340,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch(`${endpoint}?page=${page}`)
       .then(response => {
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          throw new Error('fetch-pkt-data: Network response was not ok');
         }
         return response.json();
       })
@@ -435,9 +482,10 @@ document.addEventListener('DOMContentLoaded', function () {
     //this function cannot be called on afterFilter tag so if updated here it must also be updated there
   }
 });
-
+//-----------------------------------------
 
 //all devices table
+//-----------------------------------------
 document.addEventListener('DOMContentLoaded', function () { //is page loaded?
   //data that will be directly inserted into table
   let devices = [];
@@ -446,13 +494,13 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
   fetch(endpoint) //get data for all devices
     .then(response => {
       if (!response.ok) {
-        throw new Error('Netowrk response was not ok');
+        throw new Error('fetch-devices: Network response was not ok');
       }
       return response.json();
     })
     .then(data => { //response is ok 
-      console.log(data)
       /**
+      console.log(data)
        * fetch object structure
        * device_data = {
       "id": device.id,
@@ -545,9 +593,10 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
       });
     })
 })
-
+//-----------------------------------------
 
 //Donut chart and vulnerable devices table
+//-----------------------------------------
 let donutChart;
 let hotDT; // Store the Handsontable instance
 
@@ -559,7 +608,7 @@ function fetchDataAndUpdateChart() {
   fetch(endpoint)
     .then(response => {
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error('device-stats: Network response was not ok');
       }
       return response.json();
     })
@@ -697,4 +746,6 @@ document.addEventListener("DOMContentLoaded", fetchDataAndUpdateChart);
 // Update chart on button click
 document.getElementById("updateButton").addEventListener("click", fetchDataAndUpdateChart);
 
+//end donut chart and vulnerable groups table
+//-----------------------------------------
 

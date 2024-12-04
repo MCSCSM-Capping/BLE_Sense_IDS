@@ -11,64 +11,82 @@
       <!--Add breadcrumbing here when necessary-->
     </div>
     <div class="row">
-      <div class="col-lg-12 ">
-        <div class="card" style="min-height: 400px">
+      <div class="col-lg-8 ">
+        <div class="card" style="max-height: 400px">
           <div class="card-body">
             <h5 class="card-title">Current Devices</h5>
             <!-- Line Chart -->
-                        <a href="{% url 'devices' %}">
-            <div id="deviceCount" style="height: 300px; width: 100%;"></div>
-                        </a>
+            <a href="{% url 'devices' %}">
+              <div id="deviceCount" style="height: 300px; width: 100%;"></div>
+            </a>
             <!-- End Line CHart -->
           </div>
         </div>
       </div>
-    </div>
-    <!--Upper Dashboard Ends-->
-    <hr>
-    <div class="row">
-      <div class="col-lg-12">
-        <div class="card">
-          <div class="card-body">
-            <div class="row">
-              <div class="col-sm-5">
-                <label for="startDate" class="col-form-label">Start Date</label>
-                <input type="date" id="startDate" class="form-control">
+      <!--Alerts-->
+      <div class="col-lg-4">
+        <div class="card" style="max-height: 400px; overflow-y: auto;">
+          <div class = "card-body">
+            <h5 class="card-title">Alerts</h5>
+            <table class="table">
+              <tbody>
+                {%for scanner in scanners%}
+                <tr id="alert_{{scanner.id}}">
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!--Upper Dashboard Ends-->
+      <hr>
+      <div class="row">
+        <div class="col-lg-12">
+          <div class="card">
+            <div class="card-body">
+              <div class="row">
+                <div class="col-sm-5">
+                  <label for="startDate" class="col-form-label">Start Date</label>
+                  <input type="date" id="startDate" class="form-control">
+                </div>
+                <div class="col-sm-5">
+                  <label for="endDate" class="col-form-label">End Date</label>
+                  <input type="date" id="endDate" class="form-control">
+                </div>
+                <div class="col-sm-2">
+                  <br>
+                  <button style="position: absolute;
+                                 bottom: 50%"
+                          id="updateButton"
+                          class="btn btn-primary">Update</button>
+                </div>
               </div>
-              <div class="col-sm-5">
-                <label for="endDate" class="col-form-label">End Date</label>
-                <input type="date" id="endDate" class="form-control">
-              </div>
-              <div class="col-sm-2">
-                <br>
-                <button style="position: absolute; bottom: 50%" id="updateButton" class="btn btn-primary">Update</button>
+              <div class="mt-3">
+                <button id="last7" class="btn btn-secondary">Last 7 Days</button>
+                <button id="last30" class="btn btn-secondary">Last 30 Days</button>
+                <button id="ytd" class="btn btn-secondary">Year to Date</button>
               </div>
             </div>
-            <div class="mt-3">
-              <button id="last7" class="btn btn-secondary">Last 7 Days</button>
-              <button id="last30" class="btn btn-secondary">Last 30 Days</button>
-              <button id="ytd" class="btn btn-secondary">Year to Date</button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-lg-6">
+          <div class="card" style="min-height: 486px;">
+            <div class="card-body">
+              <h5 class=card-title>Top Vulnerable locations</h5>
+              <div id="vulnerableLocations"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card">
+            <div class="card-body">
+              <h5 class=card-title>Total Devices</h5>
+              <canvas id="totalAttacks" style="max-height: 400px;"></canvas>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="row">
-      <div class="col-lg-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class=card-title>Top Vulnerable locations</h5>
-            <div id="vulnerableLocations"></div>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class=card-title>Total Attacks</h5>
-            <canvas id="totalAttacks" style="max-height: 400px;"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-  {% endblock %}
+    {% endblock %}
