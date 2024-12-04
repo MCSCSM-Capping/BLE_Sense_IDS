@@ -55,8 +55,9 @@ class SystemInfoDict(TypedDict):
     used_swap: float  # Used swap memory in GB
     total_cpu_usage: float  # Total CPU usage as percentage
     disk_info: str  # disk info strings separated by commas
+    timestamp: datetime
     packet_queue_length: int  # Length of packet queue
-    scanner: str
+    scanner: Scanner
 
 
 class HeartbeatMessageDict(TypedDict):
@@ -142,7 +143,8 @@ def decode_heartbeat(bytes_reader: BytesIO) -> HeartbeatMessageDict:
         "total_cpu_usage": data["body"]["total_cpu_usage"],
         "disk_info": ", ".join(data["body"]["disk_info"]),
         "packet_queue_length": data["body"]["packet_queue_length"],
-        "scanner": data["serial"],
+        "scanner": get_or_create_scanner(data["serial"]),
+        "timestamp": datetime.fromtimestamp(int(data["timestamp"])),
     }
 
     return {
@@ -280,34 +282,11 @@ class SendPacketsSocket(WebsocketConsumer):
         pass
 
     def receive(self, bytes_data):  # pyright: ignore
-        bytes_reader = BytesIO(bytes_data)
         # print(bytes_data)
         logging.info("Received Transmission")
-        # # valid does not work for some reason
-        # if fastavro.validate(
-        #     BytesIO(bytes_data), PACKET_SCHEMA, raise_errors=False, strict=False
-        # ):
-        #     logging.info("Recieved Packet Message")
-        #     packet_delivery = decode_packet_delivery(bytes_reader)
-        #     logging.info("First deserialized packet from delivery: ")
-        #     logging.info(packet_delivery["packets"][0])
-        # elif fastavro.validate(
-        #     BytesIO(bytes_data), HB_SCHEMA, raise_errors=False, strict=False
-        # ):
-        #     logging.info("Recieved HB message")
-        #     hb_msg = decode_heartbeat(bytes_reader)
-        #     system_info = SystemInfo(**hb_msg["body"])
-        #     system_info.save()
-        #     network_information = hb_msg["network_info"]
-        #     network_objs = [
-        #         NetworkInfo(**n, system_info=system_info) for n in network_information
-        #     ]
-        #     NetworkInfo.objects.bulk_create(network_objs)
-        # else:
-        #     logging.error("Failed to validate either schema")
         try:
             logging.info("Recieved Packet Message")
-            packet_delivery = decode_packet_delivery(bytes_reader)
+            packet_delivery = decode_packet_delivery(BytesIO(bytes_data))
             logging.info(
                 f"First deserialized packet from delivery: {packet_delivery["packets"][0]}"
             )
@@ -316,7 +295,7 @@ class SendPacketsSocket(WebsocketConsumer):
             logging.info(f"Failed loading as packets {e}")
             logging.info("Recieved HB message")
             try:
-                hb_msg = decode_heartbeat(bytes_reader)
+                hb_msg = decode_heartbeat(BytesIO(bytes_data))
             except (ValueError, SchemaResolutionError) as e:
                 logging.error(f"Failed to validate either schema HR error: {e}")
                 return
