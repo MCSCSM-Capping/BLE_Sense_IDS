@@ -774,8 +774,8 @@ document.addEventListener('DOMContentLoaded', function () {
     setDateRange('ytd');
     fetchDataAndUpdateChart();
   });
-  //date range set to year to date on page load
-  document.addEventListener("DOMContentLoaded", setDateRange('ytd'));
+  //date range set to last 7 days to date on page load
+  document.addEventListener("DOMContentLoaded", setDateRange('last7'));
 });
 
 
