@@ -18,14 +18,29 @@ document.addEventListener('DOMContentLoaded', function () {
           if (item.latest_timestamp) {
             const timestamp = new Date(item.latest_timestamp);
             const diffSeconds = (now - timestamp) / 1000; // Difference in seconds
+
+            //zulu time conversion
+            let utcDate = new Date(item.latest_timestamp);
+            let options = {
+              timeZone: 'America/New_York',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true
+            };
+            let time = utcDate.toLocaleTimeString('en-US', options);
+            let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+            formattedTimestamp = `${time} ${date}`;  // Time first, followed by the date  
+
+
             if (diffSeconds > 60) {
-              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> " + item.name + " is offline since " + item.latest_timestamp + " </td>"
+              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> " + item.name + " has been offline since " + formattedTimestamp + " </td>"
+            } else if (item.latest_timestamp == null) {
+              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> " + item.name + " has not been set up </td>"
             }
-          } else if (item.latest_timestamp == null) {
-            document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> " + item.name + " has not been set up </td>"
-          }
-          else {
-            document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> " + item.name + " is online </td>"
+            else {
+              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> " + item.name + " is online </td>"
+            }
           }
         });
       })
@@ -415,6 +430,25 @@ document.addEventListener('DOMContentLoaded', function () {
           let time = utcDate.toLocaleTimeString('en-US', options);
           let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
           packet.time_stamp = `${time} ${date}`;  // Time first, followed by the date
+
+          if (packet.rssi == 1) {
+            packet.rssi = "Unknown"
+          }
+          if (packet.channel_index == -1) {
+            packet.channel_index = "Unknown"
+          }
+          if (packet.advertising_address == -1) {
+            packet.advertising_address = "Unknown"
+          }
+          if (packet.power_level == -255) {
+            packet.power_level = "Unknown"
+          }
+          if (packet.counter == -1) {
+            packet.counter = "Unknown"
+          }
+          if (packet.protocol_version == -1) {
+            packet.protocol_version = "Unknown"
+          }
         });
 
         // Render the table with new data
@@ -544,7 +578,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
           deviceObj.scanner = `${device.scanner_name}`;
           deviceObj.group = `${device.group}`;
-          deviceObj.malicious = `${device.malicious}`;
+          if (device.malicious == true) {
+            deviceObj.malicious = 'Malicious'
+          }
+          else (deviceObj.malicious = 'Non-Malicious')
           devices.push(deviceObj);
         });
 
