@@ -7,6 +7,8 @@ WHERE device_id IN (
     GROUP BY device_id
     HAVING COUNT(DISTINCT advertising_address) > 1
 );
+-- 2024-12-05 00:19:13.658485   
+-- 2024-12-05 00:19:12.946538   
 SELECT MAX(client_packet.time_stamp) FROM client_packet WHERE client_packet.advertising_address like '209005070789164';
 SELECT MAX(client_packet.time_stamp) FROM client_packet WHERE client_packet.advertising_address like '129291415251651';
 SELECT * FROM client_device;

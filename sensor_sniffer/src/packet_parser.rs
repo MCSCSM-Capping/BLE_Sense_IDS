@@ -1,11 +1,8 @@
-use std::collections::HashMap;
-use regex::Regex;
-use lazy_static::lazy_static;
-use std::time::{SystemTime, UNIX_EPOCH};
 use crate::config::{BLEPacket, OUI_MAP};
+use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 lazy_static! {
     // static timestamp_re: Regex = Regex::new(r#""timestamp": "(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)""#).unwrap();
@@ -129,7 +126,10 @@ fn lookup_oui(mac_address: i64) -> String {
 // parse the log statement from nrfutil
 pub fn parse_ble_packet(input: &str) -> BLEPacket {
     // use regex to extract the data from the log statement
-    let timestamp: f64 = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
+    let timestamp: f64 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
 
     let rssi: i32 = rssi_re
         .captures(input)
