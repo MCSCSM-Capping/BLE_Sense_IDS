@@ -3,6 +3,9 @@ use regex::Regex;
 use lazy_static::lazy_static;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::config::{BLEPacket, OUI_MAP};
+use regex::Regex;
+use std::collections::HashMap;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 lazy_static! {
     // static timestamp_re: Regex = Regex::new(r#""timestamp": "(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)""#).unwrap();
@@ -17,8 +20,8 @@ lazy_static! {
 
 // take in a string of hex values that is the advertising payload of a BLE packet and parse it to get attributes from it
 fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String> {
-    let advertising_data: Vec<u8> = hex::decode(advertising_data_hex)
-        .expect("Failed to decode advertising data hex string");
+    let advertising_data: Vec<u8> =
+        hex::decode(advertising_data_hex).expect("Failed to decode advertising data hex string");
 
     let mut index: usize = 0;
     let mut result: HashMap<String, String> = HashMap::new();
@@ -80,7 +83,12 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
             0x06 | 0x07 => {
                 // Incomplete or Complete List of 128-bit UUIDs
                 for chunk in ad_data.chunks_exact(16) {
-                    let uuid: String = chunk.iter().rev().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join("");
+                    let uuid: String = chunk
+                        .iter()
+                        .rev()
+                        .map(|b| format!("{:02X}", b))
+                        .collect::<Vec<_>>()
+                        .join("");
                     uuid_list.push(uuid);
                 }
             }
@@ -92,7 +100,7 @@ fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String>
         index += length + 1;
     }
 
-    if uuid_list.len() == 0{
+    if uuid_list.len() == 0 {
         result.insert("uuids".to_string(), "None".to_string());
     } else {
         result.insert("uuids".to_string(), uuid_list.join(", "));
@@ -111,58 +119,68 @@ fn lookup_oui(mac_address: i64) -> String {
     );
 
     // Use the map and return either the company name or "Unknown"
-    OUI_MAP.get()
-        .and_then(|map: &HashMap<String, String> | map.get(&oui_prefix))
+    OUI_MAP
+        .get()
+        .and_then(|map: &HashMap<String, String>| map.get(&oui_prefix))
         .unwrap_or(&"Unknown".to_string())
-        .clone() 
+        .clone()
 }
 
 // parse the log statement from nrfutil
 pub fn parse_ble_packet(input: &str) -> BLEPacket {
     // use regex to extract the data from the log statement
-
-    // from packet metadata itself -- is not very accurate
-    // let timestamp_str: &str = timestamp_re
-    //     .captures(input)
-    //     .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str()))
-    //     .unwrap_or(""); // Default to empty if parsing fails
     let timestamp: f64 = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
 
     let rssi: i32 = rssi_re
         .captures(input)
-        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok()))
+        .and_then(|cap: regex::Captures<'_>| {
+            cap.get(1)
+                .map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok())
+        })
         .flatten()
         .unwrap_or(1); // Default to 1 if parsing fails - rssi caps at 0
 
     let channel_index: i32 = channel_index_re
         .captures(input)
-        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok()))
+        .and_then(|cap: regex::Captures<'_>| {
+            cap.get(1)
+                .map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok())
+        })
         .flatten()
         .unwrap_or(-1); // Default to -1 if parsing fails
 
     let advertising_address: i64 = if let Some(caps) = advertising_address_re.captures(input) {
         let mac_str: &str = &caps[1]; // Capture the MAC address string
-        
+
         // Split the MAC address into parts and parse as a vector of u8
-        let mac_address: Vec<u8> = mac_str.split(|c: char| c == ':' || c == '-')
+        let mac_address: Vec<u8> = mac_str
+            .split(|c: char| c == ':' || c == '-')
             .filter_map(|part: &str| u8::from_str_radix(part, 16).ok())
             .collect();
 
         // Convert the MAC address bytes to a single i64
-        mac_address.iter().fold(0, |acc, &byte| (acc << 8) | byte as i64)
+        mac_address
+            .iter()
+            .fold(0, |acc, &byte| (acc << 8) | byte as i64)
     } else {
         -1 // Default to -1 if parsing fails
     };
 
     let packet_counter: i64 = packet_counter_re
         .captures(input)
-        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<i64>().ok()))
+        .and_then(|cap: regex::Captures<'_>| {
+            cap.get(1)
+                .map(|m: regex::Match<'_>| m.as_str().parse::<i64>().ok())
+        })
         .flatten()
         .unwrap_or(-1); // Default to -1 if parsing fails
 
     let protocol_version: i32 = protocol_version_re
         .captures(input)
-        .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok()))
+        .and_then(|cap: regex::Captures<'_>| {
+            cap.get(1)
+                .map(|m: regex::Match<'_>| m.as_str().parse::<i32>().ok())
+        })
         .flatten()
         .unwrap_or(-1); // Default to -1 if parsing fails
 
@@ -172,7 +190,7 @@ pub fn parse_ble_packet(input: &str) -> BLEPacket {
         .unwrap_or(""); // Default to empty if parsing fails
 
     // initialize to defaults in case no advertising data presented
-    let mut power_level: i32 = -255; // so default value is out of range 
+    let mut power_level: i32 = -255; // so default value is out of range
     let mut company_id: i32 = -1;
     let mut long_device_name: String = "Unknown".to_string();
     let mut short_device_name: String = "Unknown".to_string();
@@ -188,17 +206,23 @@ pub fn parse_ble_packet(input: &str) -> BLEPacket {
             .collect::<String>();
 
         let parsed_adv_data: HashMap<String, String> = parse_advertising_data(&adv_hex_string);
-        power_level = parsed_adv_data["power_level"].parse::<i32>().ok().unwrap_or(-1);
+        power_level = parsed_adv_data["power_level"]
+            .parse::<i32>()
+            .ok()
+            .unwrap_or(-1);
         long_device_name = parsed_adv_data["long_device_name"].to_string();
         short_device_name = parsed_adv_data["short_device_name"].to_string();
-        company_id = parsed_adv_data["company_id"].parse::<i32>().ok().unwrap_or(-1);
+        company_id = parsed_adv_data["company_id"]
+            .parse::<i32>()
+            .ok()
+            .unwrap_or(-1);
         uuids = parsed_adv_data["uuids"].to_string();
-    } 
+    }
 
     let mut oui: String = "Unknown".to_string();
     if advertising_address != -1 {
         oui = lookup_oui(advertising_address);
-    } 
+    }
 
     BLEPacket {
         timestamp,
@@ -212,6 +236,6 @@ pub fn parse_ble_packet(input: &str) -> BLEPacket {
         oui,
         long_device_name,
         short_device_name,
-        uuids
+        uuids,
     }
 }

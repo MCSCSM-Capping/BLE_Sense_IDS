@@ -16,7 +16,7 @@ class SystemInfo(models.Model):
     scanner = models.ForeignKey(
         "client.Scanner", on_delete=models.CASCADE
     )  # added this
-    timestamp = models.DateField()  # added this
+    timestamp = models.DateTimeField()  # added this
     network_information: QuerySet["NetworkInfo"]
 
 

@@ -59,7 +59,7 @@ class Packet(models.Model):
     advertising_address = models.TextField()
     power_level = models.FloatField()
     company_id = models.TextField()
-    time_stamp = models.DateField()
+    time_stamp = models.DateTimeField()
     rssi = models.IntegerField()
     channel_index = models.IntegerField()
     counter = models.IntegerField()
