@@ -86,10 +86,15 @@ WSGI_APPLICATION = "ble_captures.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# this is my example postgresql connection string
+# postgresql://postgres@/ble-packets
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "ble-packets",
+        "USER": "postgres",
+        # 'PASSWORD': 'your_database_password',
+        # 'HOST': 'localhost',
     }
 }
 
