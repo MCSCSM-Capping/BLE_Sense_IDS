@@ -601,6 +601,7 @@ let donutChart;
 let hotDT; // Store the Handsontable instance
 
 function fetchDataAndUpdateChart() {
+  console.log(fetchDataAndUpdateChart);
   const startDate = document.getElementById("startDate").value;
   const endDate = document.getElementById("endDate").value;
 
@@ -613,6 +614,8 @@ function fetchDataAndUpdateChart() {
       return response.json();
     })
     .then(data => {
+
+      console.log(data);
       // Update donut chart
       if (donutChart) {
         donutChart.data.datasets[0].data = [

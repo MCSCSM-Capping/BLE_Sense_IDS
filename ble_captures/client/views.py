@@ -70,7 +70,7 @@ def system_metrics(request, scanner_id):
     # Return the data in a JSON response
     return JsonResponse(data)
 
-
+#for line graph
 def device_count(request):
     # Get the current time and the time 60 seconds ago
     now = timezone.now()
@@ -103,41 +103,38 @@ def device_count(request):
         }
     )
 
-
+#for donut chart and table
 def device_stats(request):
     # Parse the start and end dates from the query parameters
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
-    start_date = (
-        datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None
-    )
+    start_date = datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None
     end_date = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else None
 
-    # Define the time filter
-    date_filter = (
-        Q(time_stamp__range=(start_date, end_date)) if start_date and end_date else Q()
-    )
+    #consider packets sent until midnight of the end date's day
+    if end_date:
+        end_date = datetime.combine(end_date, datetime.max.time())
 
-    # Query for total devices
-    total_devices = Device.objects.count()
+    # Define the date range filter
+    date_filter = Q(packets__time_stamp__range=(start_date, end_date)) if start_date and end_date else Q()
 
-    # Devices that have had a malicious packet in the specified timeframe
-    malicious_device_count = (
-        Device.objects.filter(
-            packets__malicious=True, packets__time_stamp__range=(start_date, end_date)
-        )
-        .distinct()
-        .count()
-    )
+    # Query devices that sent packets in the specified timeframe
+    relevant_devices = Device.objects.filter(date_filter).distinct()
 
-    # Devices that have never had a malicious packet in the specified timeframe
-    non_malicious_device_count = total_devices - malicious_device_count
+    # Total devices within the date range
+    total_devices = relevant_devices.count()
 
-    # Count malicious devices by group within the specified timeframe
+    # Devices that sent malicious packets in the specified timeframe
+    malicious_device_count = relevant_devices.filter(packets__malicious=True).count()
+
+    # Devices that sent only non-malicious packets in the specified timeframe
+    non_malicious_device_count = relevant_devices.exclude(packets__malicious=True).count()
+
+    # Count malicious devices grouped by group name
     malicious_by_group = (
         Group.objects.filter(
-            scanners__packet__malicious=True,
             scanners__packet__time_stamp__range=(start_date, end_date),
+            scanners__packet__malicious=True,
         )
         .annotate(
             malicious_device_count=Count("scanners__packet__device", distinct=True)
@@ -156,12 +153,14 @@ def device_stats(request):
     return JsonResponse(data, safe=False)
 
 
+
 def fetch_devices(request):
     # Gget each device's latest packet by timestamp
-    latest_packets = Packet.objects.values("device_id").annotate(
-        latest_timestamp=Max("time_stamp")
+    latest_packets = (
+        Packet.objects.exclude(device_id__isnull=True)
+        .values("device_id")
+        .annotate(latest_timestamp=Max("time_stamp"))
     )
-
     # Get the details of each device along with its latest packet and related scanner and group
     devices_with_latest_packet = []
     for entry in latest_packets:
