@@ -84,8 +84,8 @@ def get_or_create_scanner(scanner_id) -> Scanner:
     if scanner is not None:
         return scanner
 
-    group = Group.objects.create(name="Auto generated group")
-    company = Company.objects.create(name="Auto generated company")
+    group = Group.objects.create(name="Lowell Thmoas")
+    company = Company.objects.create(name="Marist")
 
     return Scanner.objects.create(group=group, company=company)
 

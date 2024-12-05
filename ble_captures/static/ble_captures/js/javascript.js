@@ -20,18 +20,18 @@ document.addEventListener('DOMContentLoaded', function () {
             const diffSeconds = (now - timestamp) / 1000; // Difference in seconds
             if (diffSeconds > 60) {
               document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> " + item.name + " is offline since " + item.latest_timestamp + " </td>"
-            }
           } else if (item.latest_timestamp == null) {
             document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> " + item.name + " has not been set up </td>"
           }
           else {
             document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> " + item.name + " is online </td>"
           }
+        }
         });
       })
   }
   fetchSysStatus();
-  setInterval(fetchSysStatus, 60000);
+  setInterval(fetchSysStatus, 1000);
 });
 
 
