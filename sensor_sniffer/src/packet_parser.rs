@@ -1,7 +1,22 @@
+use std::collections::HashMap;
+use regex::Regex;
+use lazy_static::lazy_static;
+use std::time::{SystemTime, UNIX_EPOCH};
 use crate::config::{BLEPacket, OUI_MAP};
 use regex::Regex;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+lazy_static! {
+    // static timestamp_re: Regex = Regex::new(r#""timestamp": "(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)""#).unwrap();
+    static ref rssi_re: Regex = Regex::new(r"rssi_sample:\s([-]?\d+)").unwrap();
+    static ref channel_index_re: Regex = Regex::new(r"channel_index:\s(\d+)").unwrap();
+    // mac addresses are missing leading 0s for some reason...
+    static ref advertising_address_re: Regex = Regex::new(r"advertising_address:\sBleAddress\(((?:[0-9A-Fa-f]{1,2}[:-]){5}[0-9A-Fa-f]{1,2})(?:\s[\w]*)?\)").unwrap();
+    static ref packet_counter_re: Regex = Regex::new(r"packet_counter:\s(\d+)").unwrap();
+    static ref protocol_version_re: Regex = Regex::new(r"protocol_version:\sVersionX\((\d+)\)").unwrap();
+    static ref adv_data_re: Regex = Regex::new(r"data: AdvData\(\[([\d, ]+)\]\)").unwrap();
+}
 
 // take in a string of hex values that is the advertising payload of a BLE packet and parse it to get attributes from it
 fn parse_advertising_data(advertising_data_hex: &str) -> HashMap<String, String> {
@@ -114,23 +129,7 @@ fn lookup_oui(mac_address: i64) -> String {
 // parse the log statement from nrfutil
 pub fn parse_ble_packet(input: &str) -> BLEPacket {
     // use regex to extract the data from the log statement
-    // let timestamp_re: Regex = Regex::new(r"fw_timestamp:\s(\d+)").unwrap();
-    let rssi_re: Regex = Regex::new(r"rssi_sample:\s([-]?\d+)").unwrap();
-    let channel_index_re: Regex = Regex::new(r"channel_index:\s(\d+)").unwrap();
-    // mac addresses are missing leading 0s for some reason...
-    let advertising_address_re: Regex = Regex::new(r"advertising_address:\sBleAddress\(((?:[0-9A-Fa-f]{1,2}[:-]){5}[0-9A-Fa-f]{1,2})(?:\s[\w]*)?\)").unwrap();
-    let packet_counter_re: Regex = Regex::new(r"packet_counter:\s(\d+)").unwrap();
-    let protocol_version_re: Regex = Regex::new(r"protocol_version:\sVersionX\((\d+)\)").unwrap();
-    let adv_data_re: Regex = Regex::new(r"data: AdvData\(\[([\d, ]+)\]\)").unwrap();
-
-    // let timestamp: f64 = timestamp_re
-    //     .captures(input)
-    //     .and_then(|cap: regex::Captures<'_>| cap.get(1).map(|m: regex::Match<'_>| m.as_str().parse::<f64>().ok()))
-    //     .flatten()
-    //     .unwrap_or(-1.0); // Default to 0.0 if parsing fails
-    let time: SystemTime = SystemTime::now();
-    let duration: Duration = time.duration_since(UNIX_EPOCH).unwrap();
-    let timestamp: f64 = duration.as_secs_f32() as f64;
+    let timestamp: f64 = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
 
     let rssi: i32 = rssi_re
         .captures(input)
