@@ -19,19 +19,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const timestamp = new Date(item.latest_timestamp);
             const diffSeconds = (now - timestamp) / 1000; // Difference in seconds
             if (diffSeconds > 60) {
-              document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> "+ item.name + " is offline since "+item.latest_timestamp +" </td>"
+              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> " + item.name + " is offline since " + item.latest_timestamp + " </td>"
             }
-          } else if(item.latest_timestamp == null) {
-            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> "+ item.name + " has not been set up </td>"
+          } else if (item.latest_timestamp == null) {
+            document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> " + item.name + " has not been set up </td>"
           }
-          else{
-            document.getElementById("alert_" +item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> "+ item.name + " is online </td>"
+          else {
+            document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> " + item.name + " is online </td>"
           }
         });
       })
   }
-fetchSysStatus();
-setInterval(fetchSysStatus, 60000);
+  fetchSysStatus();
+  setInterval(fetchSysStatus, 60000);
 });
 
 
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return response.json();
       })
       .then(data => {
-        console.log(data);
+        //console.log(data);
         if (data.error) {
           document.getElementById('systemMetrics').innerHTML = "<h2>ERROR: THIS SENSOR IS OFFLINE.</h2> The last heartbeat was detected at " + data.time + ".";
         }
@@ -340,12 +340,15 @@ document.addEventListener('DOMContentLoaded', function () {
   const scannerSelect = document.getElementById("scannerSelect");
   scannerSelect.addEventListener('change', function () {
     const scannerID = scannerSelect.options[scannerSelect.selectedIndex].value;
-    // Clear data when scanner changes
+
+    // Clear data arrays when scanner changes
     memoryData = [];
     swapData = [];
     cpuData = [];
     timeData = [];
-    fetchSystemMetrics(scannerID); // Fetch data for the new scanner
+
+    // Fetch data for the new scanner
+    fetchSystemMetrics(scannerID);
   });
 
   // Initial fetch for the default scanner
@@ -356,8 +359,9 @@ document.addEventListener('DOMContentLoaded', function () {
   setInterval(() => {
     const scannerID = scannerSelect.options[scannerSelect.selectedIndex].value;
     fetchSystemMetrics(scannerID);
-  }, 10000); // Update every 10 seconds
+  }, 1000); // Update every 10 seconds
 });
+
 //-----------------------------------------
 
 
@@ -373,16 +377,18 @@ const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => {
 //packets table
 //-----------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
-
   const deviceElement = document.getElementById("device-data");
   const devicePk = deviceElement.getAttribute("data-device-pk");
 
   const endpoint = '/api/fetch-pkt-data/' + devicePk;
 
-  let packets = []; // array will hold packets
-  let currentPage = 1;  //track the current page**
+  let packets = []; // Array to hold packet data
+  let currentPage = 1; // Track the current page
+  let totalPages = 0; // Track total pages
 
-  // Function to fetch packet data with pagination
+  const packetsTable = document.getElementById('packetsTable');
+
+  // Function to fetch packets for a specific page
   function loadPacketData(page) {
     fetch(`${endpoint}?page=${page}`)
       .then(response => {
@@ -391,194 +397,184 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return response.json();
       })
-      .then(data => { // response is ok
-        // Append fetched packets to packets array
+      .then(data => {
+        packets = data.packets; // Overwrite the existing packets
+        currentPage = data.pagination.current_page;
+        totalPages = data.pagination.total_pages;
 
-        data.packets.forEach(packet => {
-          let packetObj = {};
-          packetObj.id = `${packet.pk}`;
-          packetObj.advertising_address = `${packet.advertising_address}`;
-          packetObj.power_level = `${packet.power_level}`;
-          packetObj.company_id = `${packet.company_id}`;
-          packetObj.time_stamp = `${packet.time_stamp}`;
-          packetObj.rssi = `${packet.rssi}`;
-          packetObj.channel_index = `${packet.channel_index}`;
-          packetObj.counter = `${packet.counter}`;
-          packetObj.protocol_version = `${packet.protocol_version}`;
-          packetObj.malicious = `${packet.malicious}`;
-          packets.push(packetObj);
+        // Convert the time_stamp field for each packet
+        packets.forEach(packet => {
+          let utcDate = new Date(packet.time_stamp);
+          let options = {
+            timeZone: 'America/New_York',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+          };
+          let time = utcDate.toLocaleTimeString('en-US', options);
+          let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+          packet.time_stamp = `${time} ${date}`;  // Time first, followed by the date
         });
 
-        //console.log(packets);
-
-        // If Handsontable instance already exists, update data
-        const packetsTable = document.getElementById('packetsTable');
+        // Render the table with new data
         if (window.hotDT) {
-          window.hotDT.loadData(packets);  // Load the accumulated packet data
-          countRows();
+          window.hotDT.loadData(packets);
         } else {
-          // Create Handsontable instance if it doesn't exist
-          document.getElementById("packetHead").innerHTML += "<h2> Packets for Device ID " + devicePk + "</h2>";
           window.hotDT = new Handsontable(packetsTable, {
             data: packets,
             columns: [
-              { title: 'Packet ID', type: 'numeric', data: 'id' },
+              { title: 'Packet ID', type: 'numeric', data: 'pk' },
               { title: 'Time Stamp', type: 'text', data: 'time_stamp' },
               { title: 'Advertising Address', type: 'text', data: 'advertising_address' },
               { title: 'Power Level', type: 'text', data: 'power_level' },
               { title: 'Company ID', type: 'text', data: 'company_id' },
               { title: 'rssi', type: 'text', data: 'rssi' },
-              { title: 'Channel Index', type: 'text', data: "channel_index" },
-              { title: 'Counter', type: 'text', data: "counter" },
-              { title: 'Protocol Version', type: 'text', data: "protocol_version" },
-              { title: 'Malicious', type: 'text', data: "malicious" }
+              { title: 'Channel Index', type: 'text', data: 'channel_index' },
+              { title: 'Counter', type: 'text', data: 'counter' },
+              { title: 'Protocol Version', type: 'text', data: 'protocol_version' },
+              { title: 'Malicious', type: 'text', data: 'malicious' }
             ],
             filters: true,
-            dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
+            dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar',],
             height: 'auto',
             autoWrapRow: true,
             autoWrapCol: true,
             readOnly: true,
             stretchH: 'all',
             width: '100%',
-            afterFilter: function () {
-              document.getElementById("rowDisplay").innerHTML = "Rows Displayed: " + window.hotDT.countRows();
-            },
             licenseKey: 'non-commercial-and-evaluation',
+            afterFilter: function countRows() {
+              const rowCount = window.hotDT.countRows();
+              document.getElementById("packetRowDisplay").innerHTML = 'Rows Displayed: ' + rowCount;
+            }
           });
-          countRows();
-
-
         }
 
-        // Check if more packets are available and display "Load More" button if so
-        const loadMoreButton = document.getElementById('loadMoreButton');
-        if (data.has_more_packets) {
-          loadMoreButton.style.display = 'block';
-          currentPage = data.next_page; // Update currentPage for the next fetch
-        } else {
-          loadMoreButton.style.display = 'none'; // Hide button if no more packets
-        }
+        // Update the pagination buttons
+        renderPaginationControls();
+
+        // Update the row count display
+        countRows();
       })
       .catch(error => {
         console.error('Error fetching packet data:', error);
       });
   }
 
+  // Function to render pagination controls
+  function renderPaginationControls() {
+    const paginationContainer = document.getElementById('pagination');
+    paginationContainer.innerHTML = ''; // Clear existing buttons
 
+    // Previous button
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous';
+    prevButton.disabled = currentPage === 1;
+    prevButton.addEventListener('click', () => loadPacketData(currentPage - 1));
+    paginationContainer.appendChild(prevButton);
 
-  // Initial data load
-  loadPacketData(currentPage);
+    // Numbered page buttons
+    for (let i = 1; i <= totalPages; i++) {
+      const pageButton = document.createElement('button');
+      pageButton.textContent = i;
+      pageButton.className = i === currentPage ? 'active' : '';
+      pageButton.addEventListener('click', () => loadPacketData(i));
+      paginationContainer.appendChild(pageButton);
+    }
 
-  // Event listener for the "Load More" button
-  document.getElementById('loadMoreButton').addEventListener('click', function () {
-    loadPacketData(currentPage); // Load the next page of data
-
-  });
-
-  function countRows() {
-    document.getElementById("rowDisplay").innerHTML = "Rows Displayed: " + window.hotDT.countRows();
-    //this is called on page load and after each pagination
-    //this function cannot be called on afterFilter tag so if updated here it must also be updated there
+    // Next button
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Next';
+    nextButton.disabled = currentPage === totalPages;
+    nextButton.addEventListener('click', () => loadPacketData(currentPage + 1));
+    paginationContainer.appendChild(nextButton);
   }
+
+  // Function to count rows in the Handsontable instance
+  function countRows() {
+    const rowCount = window.hotDT.countRows();
+    document.getElementById("packetRowDisplay").innerHTML = `Rows Displayed: ${rowCount}`;
+  }
+
+  // Initial load
+  loadPacketData(currentPage);
 });
+
 //-----------------------------------------
 
 //all devices table
 //-----------------------------------------
-document.addEventListener('DOMContentLoaded', function () { //is page loaded?
-  //data that will be directly inserted into table
+document.addEventListener('DOMContentLoaded', function () {
   let devices = [];
-
   const endpoint = '/api/fetch-devices';
-  fetch(endpoint) //get data for all devices
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('fetch-devices: Network response was not ok');
-      }
-      return response.json();
-    })
-    .then(data => { //response is ok 
-      /**
-      console.log(data)
-       * fetch object structure
-       * device_data = {
-      "id": device.id,
-      "name": device.name,
-      "oui": device.oui,
-      "company_id": latest_packet.company_id,
-      "time_stamp": latest_packet.time_stamp,
-      "scanner name": scan.scanner.name if scan else None,
-      "group": scan.scanner.group.name if scan else None,
-      "malicious": has_malicious_packet
-      }
-      */
+  let currentPage = 1; // Track the current page
+  const perPage = 500; // Number of rows per page
+  let hotDT; // Reference to the Handsontable instance
 
-      //loop through fetch response and insert into table data
-      data.forEach(device => {
-
-        let deviceObj = {};
-        deviceObj.id = `${device.id}`;
-        deviceObj.OUI = `${device.oui}`;
-        deviceObj.comp_id = `${device.company_id}`;
-        deviceObj.btn = `<a href="/packets/${device.id}"> View Packets </a>`;
-        deviceObj.time = `${device.time_stamp}`
-        deviceObj.scanner = `${device.scanner_name}`
-        deviceObj.group = `${device.group}`
-        deviceObj.malicious = `${device.malicious}`
-        devices.push(deviceObj);
+  // Function to fetch and update the table
+  function fetchAndRenderDevices(page) {
+    fetch(`${endpoint}?page=${page}&per_page=${perPage}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('fetch-devices: Network response was not ok');
+        }
+        return response.json();
       })
+      .then(data => {
+        devices = []; // Clear devices array
+        data.devices.forEach(device => {
+          let deviceObj = {};
+          deviceObj.id = `${device.id}`;
+          deviceObj.OUI = `${device.oui}`;
+          deviceObj.comp_id = `${device.company_id}`;
+          deviceObj.btn = `<a href="/packets/${device.id}"> View Packets </a>`;
 
-      const deviceTable = document.getElementById('deviceTable');
+          let utcDate = new Date(device.time_stamp);
+          let options = {
+            timeZone: 'America/New_York',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+          };
+          let time = utcDate.toLocaleTimeString('en-US', options);
+          let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+          deviceObj.time = `${time} ${date}`;
 
-      const hotDT = new Handsontable(deviceTable, {
+          deviceObj.scanner = `${device.scanner_name}`;
+          deviceObj.group = `${device.group}`;
+          deviceObj.malicious = `${device.malicious}`;
+          devices.push(deviceObj);
+        });
+
+        updateTable(); // Update the table with the new data
+        renderPagination(data.total_pages, data.current_page); // Update pagination controls
+      });
+  }
+
+  // Function to initialize or update the Handsontable
+  function updateTable() {
+    const deviceTable = document.getElementById('deviceTable');
+    if (hotDT) {
+      // If Handsontable is already initialized, update its data
+      hotDT.loadData(devices);
+      countRows();
+    } else {
+      // Initialize Handsontable for the first time
+      hotDT = new Handsontable(deviceTable, {
         data: devices,
         columns: [
-          {
-            title: 'ID',
-            type: 'numeric',
-            data: 'id',
-          },
-          {
-            title: 'Malicious?',
-            type: 'text',
-            data: 'malicious'
-          },
-          {
-            title: 'OUI',
-            type: 'text',
-            data: 'OUI',
-          },
-          {
-            title: 'Company ID',
-            type: 'text',
-            data: 'comp_id',
-          },
-          {
-            title: 'Scanned by',
-            type: 'text',
-            data: 'scanner',
-          },
-          {
-            title: 'Last seen at',
-            type: 'text',
-            data: 'group',
-          },
-          {
-            title: 'Last detected at',
-            type: 'text',
-            data: 'time'
-          },
-          {
-            title: 'View Packets',
-            type: 'text',
-            data: "btn",
-            renderer: safeHtmlRenderer,
-          }
+          { title: 'ID', type: 'numeric', data: 'id' },
+          { title: 'Malicious?', type: 'text', data: 'malicious' },
+          { title: 'OUI', type: 'text', data: 'OUI' },
+          { title: 'Company ID', type: 'text', data: 'comp_id' },
+          { title: 'Scanned by', type: 'text', data: 'scanner' },
+          { title: 'Last seen at', type: 'text', data: 'group' },
+          { title: 'Last detected at', type: 'text', data: 'time' },
+          { title: 'View Packets', type: 'text', data: "btn", renderer: safeHtmlRenderer },
         ],
-        // enable filtering
         filters: true,
-        // enable the column menu
         dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         height: 'auto',
         autoWrapRow: true,
@@ -586,14 +582,54 @@ document.addEventListener('DOMContentLoaded', function () { //is page loaded?
         readOnly: true,
         stretchH: 'all',
         width: '100%',
-        afterFilter: function () {
-          console.log(hotDT.countRows()) // have this appear on page as filter results
-        },
         licenseKey: 'non-commercial-and-evaluation',
+        afterFilter: function countRows() {
+          const rowCount = hotDT.countRows();
+          document.getElementById("deviceRowDisplay").innerHTML = `Rows Displayed: ${rowCount}`;
+        }
       });
-    })
-})
-//-----------------------------------------
+      countRows();
+    }
+  }
+
+  // Function to render pagination buttons
+  function renderPagination(totalPages, currentPage) {
+    const paginationContainer = document.getElementById('pagination');
+    paginationContainer.innerHTML = ''; // Clear existing buttons
+
+    // Previous button
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous';
+    prevButton.disabled = currentPage === 1;
+    prevButton.onclick = () => fetchAndRenderDevices(currentPage - 1);
+    paginationContainer.appendChild(prevButton);
+
+    // Numbered page buttons
+    for (let i = 1; i <= totalPages; i++) {
+      const pageButton = document.createElement('button');
+      pageButton.textContent = i;
+      pageButton.classList.toggle('active', i === currentPage);
+      pageButton.onclick = () => fetchAndRenderDevices(i);
+      paginationContainer.appendChild(pageButton);
+    }
+
+    // Next button
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Next';
+    nextButton.disabled = currentPage === totalPages;
+    nextButton.onclick = () => fetchAndRenderDevices(currentPage + 1);
+    paginationContainer.appendChild(nextButton);
+  }
+  function countRows() {
+    const rowCount = hotDT.countRows();
+    document.getElementById("deviceRowDisplay").innerHTML = 'Rows Displayed: ' + rowCount;
+  }
+
+  // Initial fetch and render
+  fetchAndRenderDevices(currentPage);
+});
+
+
 
 //Donut chart and vulnerable devices table
 //-----------------------------------------
