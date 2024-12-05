@@ -18,18 +18,20 @@ from django.db.models import Count, Q, Exists, OuterRef
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.utils.timezone import now
+from django.core.paginator import Paginator
 
-# queries from DB
+# queries from DB------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 def sys_status(request):
     # Fetch each scanner's ID, name, and the latest timestamp of system info
-    latest_system_info = (
-        Scanner.objects.annotate(latest_timestamp=Max('systeminfo__timestamp'))
-        .values('id', 'name', 'latest_timestamp')
-    )
-    
+    latest_system_info = Scanner.objects.annotate(
+        latest_timestamp=Max("systeminfo__timestamp")
+    ).values("id", "name", "latest_timestamp")
+
     # Return as JSON response
     return JsonResponse(list(latest_system_info), safe=False)
+
 
 def system_metrics(request, scanner_id):
     time_threshold = now() - timedelta(seconds=90)
@@ -44,11 +46,11 @@ def system_metrics(request, scanner_id):
     # If no heartbeat data exists within the last 90 seconds for the given scanner ID return error with the last heartbeat time ever
     if not heartbeat:
         last_heartbeat = (
-                SystemInfo.objects.filter(scanner_id=scanner_id)
-                .order_by("-timestamp")
-                .first()
-            )
-        
+            SystemInfo.objects.filter(scanner_id=scanner_id)
+            .order_by("-timestamp")
+            .first()
+        )
+
         hbtime = last_heartbeat.timestamp if last_heartbeat else 0
         data = {
             "error": "No heartbeat data found for this scanner in the last 90 seconds",
@@ -70,7 +72,8 @@ def system_metrics(request, scanner_id):
     # Return the data in a JSON response
     return JsonResponse(data)
 
-#for line graph
+
+# for line graph
 def device_count(request):
     # Get the current time and the time 60 seconds ago
     now = timezone.now()
@@ -103,20 +106,27 @@ def device_count(request):
         }
     )
 
-#for donut chart and table
+
+# for donut chart and table
 def device_stats(request):
     # Parse the start and end dates from the query parameters
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
-    start_date = datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None
+    start_date = (
+        datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None
+    )
     end_date = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else None
 
-    #consider packets sent until midnight of the end date's day
+    # consider packets sent until midnight of the end date's day
     if end_date:
         end_date = datetime.combine(end_date, datetime.max.time())
 
     # Define the date range filter
-    date_filter = Q(packets__time_stamp__range=(start_date, end_date)) if start_date and end_date else Q()
+    date_filter = (
+        Q(packets__time_stamp__range=(start_date, end_date))
+        if start_date and end_date
+        else Q()
+    )
 
     # Query devices that sent packets in the specified timeframe
     relevant_devices = Device.objects.filter(date_filter).distinct()
@@ -128,7 +138,9 @@ def device_stats(request):
     malicious_device_count = relevant_devices.filter(packets__malicious=True).count()
 
     # Devices that sent only non-malicious packets in the specified timeframe
-    non_malicious_device_count = relevant_devices.exclude(packets__malicious=True).count()
+    non_malicious_device_count = relevant_devices.exclude(
+        packets__malicious=True
+    ).count()
 
     # Count malicious devices grouped by group name
     malicious_by_group = (
@@ -153,32 +165,33 @@ def device_stats(request):
     return JsonResponse(data, safe=False)
 
 
-
 def fetch_devices(request):
-    # Gget each device's latest packet by timestamp
+    # Get query parameters for pagination
+    page = int(request.GET.get("page", 1))  # Default to page 1
+    per_page = int(request.GET.get("per_page", 500))
+
+    # Get each device's latest packet by timestamp, ordered by latest timestamp first
     latest_packets = (
         Packet.objects.exclude(device_id__isnull=True)
         .values("device_id")
         .annotate(latest_timestamp=Max("time_stamp"))
+        .order_by('-latest_timestamp')  # Reversed to get the latest first
     )
+
     # Get the details of each device along with its latest packet and related scanner and group
     devices_with_latest_packet = []
     for entry in latest_packets:
         device_id = entry["device_id"]
         latest_timestamp = entry["latest_timestamp"]
 
-        # Get the device, latest packet, and associated scan
+        # Get the device, latest packet, and scanner
         device = Device.objects.get(id=device_id)
         latest_packet = Packet.objects.filter(
             device=device, time_stamp=latest_timestamp
         ).first()
 
-        # Get the latest scan for this packet if it exists
-        scan = (
-            Scans.objects.filter(packet=latest_packet)
-            .select_related("scanner__group")
-            .first()
-        )
+        # Get the scanner that scanned the latest packet
+        scanner = latest_packet.scanner
 
         has_malicious_packet = Packet.objects.filter(
             device=device, malicious=True
@@ -190,14 +203,25 @@ def fetch_devices(request):
             "oui": latest_packet.oui,
             "company_id": latest_packet.company_id,
             "time_stamp": latest_packet.time_stamp,
-            "scanner name": scan.scanner.name if scan else None,
-            "group": scan.scanner.group.name if scan else None,
+            "scanner_name": scanner.name if scanner else None,
+            "group": scanner.group.name if scanner else None,
             "malicious": has_malicious_packet,
         }
 
         devices_with_latest_packet.append(device_data)
 
-    return JsonResponse(devices_with_latest_packet, safe=False)
+    # Apply pagination
+    paginator = Paginator(devices_with_latest_packet, per_page)
+    current_page = paginator.get_page(page)
+
+    # Return paginated results
+    response_data = {
+        "devices": list(current_page),  # Current page's devices
+        "total_pages": paginator.num_pages,
+        "current_page": current_page.number,
+    }
+    return JsonResponse(response_data, safe=False)
+
 
 
 def fetch_pkt_data(request, device_pk):
@@ -205,55 +229,40 @@ def fetch_pkt_data(request, device_pk):
     page = int(request.GET.get("page", 1))
     packets_per_page = 500
 
-    # Calculate starting index based on page
+    # Get all packets for the device
+    total_packets = Packet.objects.filter(device=device_pk).count()
+    total_pages = (
+        total_packets + packets_per_page - 1
+    ) // packets_per_page  # Ceiling division
+
+    # Calculate starting and ending index for slicing
     start_index = (page - 1) * packets_per_page
     end_index = page * packets_per_page
 
-    # Get the initial packet queryset and slice it for pagination
+    # Fetch the current page's packets, ordered by most recent (latest) first
     packet_data = Packet.objects.filter(device=device_pk).order_by("-pk")[
-        start_index : end_index + 1
+        start_index:end_index
     ]
     serialized_packets = json.loads(serialize("json", packet_data))
 
-    packet_list = []
-    previous_packet_data = None
+    # Prepare the packet list for the response
+    packet_list = [
+        {"pk": packet["pk"], **packet["fields"]} for packet in serialized_packets
+    ]
 
-    # Loop through each packet, only add it if it differs from the previous packet (excluding timestamp)
-    for packet in serialized_packets[:packets_per_page]:  # Limit to 500 packets
-        # Extract current packet fields, ignoring 'time_stamp'
-        current_packet_data = {
-            key: value
-            for key, value in packet["fields"].items()
-            if key not in ["time_stamp", "id"]
-        }
-
-        # Check if it's the first packet or differs from the previous one
-        if previous_packet_data is None or current_packet_data != previous_packet_data:
-            # Include packet pk and fields in the response list
-            packet_list.append({"pk": packet["pk"], **packet["fields"]})
-            # Update previous_packet_data for next iteration
-            previous_packet_data = current_packet_data
-
-    # Check if there are more packets beyond the current batch
-    has_more_packets = len(serialized_packets) > packets_per_page
-
-    # Get device data
-    device_data = Device.objects.get(pk=device_pk)
-    device_dict = {
-        "id": device_data.id,
-    }
-
-    # Prepare the response data
+    # Response data includes pagination metadata
     data = {
         "packets": packet_list,
-        "this_device": device_dict,
-        "has_more_packets": has_more_packets,  # Flag to indicate more data
-        "next_page": page + 1
-        if has_more_packets
-        else None,  # Indicate the next page if available
+        "pagination": {
+            "current_page": page,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_previous": page > 1,
+        },
     }
 
     return JsonResponse(data, safe=False)
+
 
 
 # render page views

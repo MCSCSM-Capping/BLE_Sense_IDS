@@ -12,26 +12,34 @@
 :root {
   scroll-behavior: smooth;
 }
+
 /* Set font properties for all cells */
 #packetsTableContainer .handsontable .htCore th,
 #packetsTableContainer .handsontable .htCore td {
   font-family: "Open Sans", sans-serif !important;
-  font-size: 16px !important; /* Adjust font size as needed */
+  font-size: 16px !important;
+  /* Adjust font size as needed */
   color: black !important;
 }
+
 /* Set alternating row colors */
 #packetsTableContainer .handsontable .htCore tr:nth-child(odd) td {
   background-color: #f0f0f0;
 }
+
 /* Remove gridlines */
 #packetsTableContainer .handsontable .htCore td,
 #packetsTableContainer .handsontable .htCore th {
   border: none !important;
 }
+
 #packetsTableContainer .handsontable .ht_clone_top thead th {
-  background-color: #ffffff !important; /* Set header background to white */
-  color: black !important; /* Keep text color black for visibility */
-  font-weight: bold; /* Optional: Make header text bold */
+  background-color: #ffffff !important;
+  /* Set header background to white */
+  color: black !important;
+  /* Keep text color black for visibility */
+  font-weight: bold;
+  /* Optional: Make header text bold */
 }
 
 /*change appearance of filter buttons*/
@@ -40,23 +48,71 @@
   border: 1px solid #000000;
   color: #000000;
 }
+
 /*icon styling */
 .error-icon {
   color: red;
   border-radius: 50%;
-  display: inline-block; 
+  display: inline-block;
 }
 
-.ok-icon{
+.ok-icon {
   color: green;
   border-radius: 50%;
-  display: inline-block; 
+  display: inline-block;
 }
 
 .warning-icon {
   color: yellow;
   border-radius: 50%;
-  display: inline-block; 
+  display: inline-block;
+}
+
+/*pagination styling*/
+
+/* Container for pagination */
+#pagination {
+  display: flex;
+  justify-content: left;
+  align-items: left;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+#pagination button {
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 1px solid transparent; /* No border by default */
+}
+
+/* Active button styling */
+#pagination button.active {
+  background-color: #007bff;
+  color: #fff;
+  border-color: #007bff;
+}
+
+/* Inactive button styling */
+#pagination button:not(.active):not(:disabled) {
+  background-color: #fff;
+  color: #007bff;
+  border-color: #007bff;
+}
+
+/* Disabled button styling */
+#pagination button:disabled {
+  background-color: #c4c6c9;
+  color: #000;
+  border-color: #c4c6c9;
+  cursor: not-allowed;
+}
+
+/* Hover effect for non-disabled and non-active buttons */
+#pagination button:not(.active):not(:disabled):hover {
+  background-color: #f0f0f0;
 }
 
 
@@ -64,16 +120,20 @@
 
 
 #deviceTableContainer .handsontable .ht_clone_top thead th {
-  background-color: #ffffff !important; /* Set header background to white */
-  color: black !important; /* Keep text color black for visibility */
-  font-weight: bold; /* Optional: Make header text bold */
+  background-color: #ffffff !important;
+  /* Set header background to white */
+  color: black !important;
+  /* Keep text color black for visibility */
+  font-weight: bold;
+  /* Optional: Make header text bold */
 }
 
 /* Set font properties for all cells */
 #deviceTableContainer .handsontable .htCore th,
 #deviceTableContainer .handsontable .htCore td {
   font-family: "Open Sans", sans-serif !important;
-  font-size: 16px !important; /* Adjust font size as needed */
+  font-size: 16px !important;
+  /* Adjust font size as needed */
   color: black !important;
 }
 

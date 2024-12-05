@@ -11,10 +11,9 @@
     <div class="card">
       <div class = "card-body">
         <h5 class = card-title>Group Details</h5>
-        <p>Group name: {{ this_group.name }}</p>
-        <p>Number of Scanners: {{ this_group.scanners.count }}</p>
-        <p>Group ID: {{ this_group.pk }}</p>
-        <p>Group location:</p>
+        <p>Group name: <strong> {{ this_group.name }} </strong></p>
+        <p>Number of Scanners: <strong> {{ this_group.scanners.count }} </strong></p>
+        <p>Group ID: <strong> {{ this_group.pk }} </strong></p>
       </div>
     </div>
   </div>
@@ -25,7 +24,6 @@
         <div class="row">
           <div class="col-sm-4">
             <select class="form-select" id="scannerSelect">
-              <option selected>Choose a scanner to view it's activity</option>
               {% for scanner in scanners %}<option value="{{ scanner.pk }}">{{ scanner.name }}</option>{% endfor %}
             </select>
           </div>
