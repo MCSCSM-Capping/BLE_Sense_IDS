@@ -231,14 +231,15 @@ class PacketAnalysisBuffer:
         edge_time = self.last_packet_acceptance - BUFFER_SIZE_IN_SECONDS
         # a different datastructure than a python list probably makes more since
         #    this operation is O(n) to remove from the front
+        og_length = len(self.packets_in_buffer)
         while (
             len(self.packets_in_buffer) > 0
             and self.packets_in_buffer[0].timestamp < edge_time
         ):
             self.place_packet(self.packets_in_buffer.pop(0))
+        logging.info(f"Placed {og_length - len(self.packets_in_buffer)} packets")
 
     def place_packet(self, packet: BufferPacket):
-        logging.info("Placing a packet")
         self.hueristic_in_buffer[packet.advertising_address].count -= 1
         device = self.get_remove_device(packet)
         device.last_timestamp = self.last_packet_acceptance
