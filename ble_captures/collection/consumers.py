@@ -10,6 +10,7 @@ from django.conf import settings
 import fastavro
 import json
 from typing import TypedDict
+from collection.ml_model.bleClassification import classify
 import logging
 
 # some important constants for the algorithm
@@ -95,6 +96,7 @@ def decode_packet_delivery(bytes_reader: BytesIO) -> PacketDeliveryDict:
 
     scanner = get_or_create_scanner(data["serial_id"])
     # data -> dataclass struct
+    logging.info(data["packets"][0]["timestamp"])
     packets: list[BLEPacketDict] = [
         {
             "advertising_address": p["advertising_address"],
@@ -181,14 +183,25 @@ class PacketAnalysisBuffer:
         self.packets_in_buffer: list[BufferPacket] = []
         self.sorted_devices: list[DeviceListing] = []
         self.hueristic_in_buffer: dict[str, AddressHueristic] = {}
+        self.last_packet_acceptance: float = datetime.now().timestamp()
 
     def accept_packets(self, delivery: PacketDeliveryDict):
+        self.last_packet_acceptance = datetime.now().timestamp()
         logging.info("Accpeting packets")
-        packets = list(map(lambda p: Packet(**p), delivery["packets"]))
+        classifications = classify(delivery["packets"])
+        logging.info("Finished with the ML model")
+        packets = []
+        for is_malcious, packet in zip(classifications, delivery["packets"]):
+            packets.append(Packet(malicious=is_malcious, **packet))
         insert_packets = Packet.objects.bulk_create(packets)
+        logging.info(f"added {len(insert_packets)} to the database")
         buffer_packets: list[BufferPacket] = []
 
         for p in insert_packets:
+            # do not place adveisting address with the default value
+            if p.advertising_address == "-1" or p.advertising_address == -1:
+                continue
+
             hueristic = self.hueristic_in_buffer.get(p.advertising_address)
             if hueristic is None:
                 hueristic = AddressHueristic(
@@ -215,23 +228,25 @@ class PacketAnalysisBuffer:
     #    release devices that are no longer needed
     def update(self):
         logging.info("Updating packet")
-        edge_time = datetime.now().timestamp() - BUFFER_SIZE_IN_SECONDS
+        edge_time = self.last_packet_acceptance - BUFFER_SIZE_IN_SECONDS
+        # a different datastructure than a python list probably makes more since
+        #    this operation is O(n) to remove from the front
+        og_length = len(self.packets_in_buffer)
         while (
-            len(self.packets_in_buffer) == 0
-            and self.packets_in_buffer[-1].timestamp < edge_time
+            len(self.packets_in_buffer) > 0
+            and self.packets_in_buffer[0].timestamp < edge_time
         ):
-            self.place_packet(self.packets_in_buffer.pop())
+            self.place_packet(self.packets_in_buffer.pop(0))
+        logging.info(f"Placed {og_length - len(self.packets_in_buffer)} packets")
 
     def place_packet(self, packet: BufferPacket):
-        logging.info("Placing a packet")
         self.hueristic_in_buffer[packet.advertising_address].count -= 1
         device = self.get_remove_device(packet)
-        current_time = datetime.now().timestamp()
-        device.last_timestamp = current_time
+        device.last_timestamp = self.last_packet_acceptance
         device.lastest_address = packet.advertising_address
         self.sorted_devices.append(device)
-        packet_db = Packet.objects.get(packet.packet_pk)
-        packet_db.device = device.device_pk
+        packet_db = Packet.objects.get(id=packet.packet_pk)
+        packet_db.device = Device.objects.get(id=device.device_pk)
         packet_db.save()
 
     # handles getting the packet listing and removing it from the current list
@@ -241,7 +256,7 @@ class PacketAnalysisBuffer:
         index = self.get_device_index(packet.advertising_address)
         if index is not None:
             return self.sorted_devices.pop(index)
-        current_time = datetime.now().timestamp()
+        current_time = self.last_packet_acceptance
         # look for the best link
         i = -1
         while (len(self.sorted_devices) >= abs(i)) and (
@@ -292,7 +307,7 @@ class SendPacketsSocket(WebsocketConsumer):
             )
             self.analysis.accept_packets(packet_delivery)
         except (ValueError, SchemaResolutionError) as e:
-            logging.info(f"Failed loading as packets {e}")
+            # logging.info(f"Failed loading as packets {e}")
             logging.info("Recieved HB message")
             try:
                 hb_msg = decode_heartbeat(BytesIO(bytes_data))
