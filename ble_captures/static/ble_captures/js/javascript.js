@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function () {
       })
   }
   fetchSysStatus();
-  setInterval(fetchSysStatus, 60000);
+  setInterval(fetchSysStatus, 1000);
 });
 
 

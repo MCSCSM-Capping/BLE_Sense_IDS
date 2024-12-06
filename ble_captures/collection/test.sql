@@ -12,3 +12,5 @@ WHERE device_id IN (
 SELECT MAX(client_packet.time_stamp) FROM client_packet WHERE client_packet.advertising_address like '209005070789164';
 SELECT MAX(client_packet.time_stamp) FROM client_packet WHERE client_packet.advertising_address like '129291415251651';
 SELECT * FROM client_device;
+
+SELECT * FROM client_scanner;
