@@ -435,7 +435,7 @@ def logout_user(request: HttpRequest) -> HttpResponse:
     return redirect("login")
 
 
-def load_company_map(yaml_filename) -> map:
+def load_company_map(yaml_filename: str) -> map:
     with open(os.path.join(settings.BASE_DIR, "client", yaml_filename), 'r') as company_yaml:
         company_data = yaml.safe_load(company_yaml)
     return {
@@ -448,4 +448,4 @@ def get_company_name_from_id(company_id: int) -> str:
     return company_map.get(company_id, "Unknown")
 
 
-company_map = load_company_map("company_identifiers.yaml");
+company_map = load_company_map("company_identifiers.yaml")
