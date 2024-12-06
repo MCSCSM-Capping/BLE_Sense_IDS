@@ -1,3 +1,4 @@
+from collections import defaultdict
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from client.models import *
@@ -19,6 +20,11 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from django.utils.timezone import now
 from django.core.paginator import Paginator
+from django.db.models import Case, When, F, FloatField
+import yaml
+from django.conf import settings
+import os
+
 
 # queries from DB------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -79,30 +85,43 @@ def device_count(request):
     now = timezone.now()
     sixty_seconds_ago = now - timedelta(seconds=60)
 
-    # Count devices that sent packets in the last 60 seconds
-    recent_device_ids = (
-        Packet.objects.filter(time_stamp__gte=sixty_seconds_ago)
-        .values_list("device_id", flat=True)
-        .distinct()
+    # Filter packets from the last 60 seconds
+    recent_packets_filter = Q(packets__time_stamp__gte=sixty_seconds_ago)
+
+    # Annotate devices with packet counts
+    annotated_devices = Device.objects.filter(recent_packets_filter).annotate(
+        total_packets=Count("packets", filter=recent_packets_filter),
+        malicious_packets=Count(
+            "packets", filter=recent_packets_filter & Q(packets__malicious=True)
+        ),
+        malicious_percentage=Case(
+            When(
+                total_packets__gt=0,
+                then=(F("malicious_packets") * 100.0) / F("total_packets"),
+            ),
+            default=0.0,
+            output_field=FloatField(),
+        ),
     )
 
-    # All recent devices count
-    all_device_count = len(recent_device_ids)
+    # Count all devices
+    all_device_count = annotated_devices.count()
 
-    # Malicious and non-malicious device count
-    malicious_device_ids = (
-        Packet.objects.filter(device_id__in=recent_device_ids, malicious=True)
-        .values_list("device_id", flat=True)
-        .distinct()
-    )
-    non_malicious_device_ids = set(recent_device_ids) - set(malicious_device_ids)
+    # Count malicious devices where 60% or more packets are malicious
+    # change threshold value here
+    malicious_device_count = annotated_devices.filter(
+        malicious_percentage__gte=60
+    ).count()
+
+    # Calculate non-malicious devices as total minus malicious
+    non_malicious_device_count = all_device_count - malicious_device_count
 
     # Response with counts
     return JsonResponse(
         {
             "all_devices": all_device_count,
-            "non_malicious_devices": len(non_malicious_device_ids),
-            "malicious_devices": len(malicious_device_ids),
+            "non_malicious_devices": non_malicious_device_count,
+            "malicious_devices": malicious_device_count,
         }
     )
 
@@ -117,7 +136,7 @@ def device_stats(request):
     )
     end_date = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else None
 
-    # consider packets sent until midnight of the end date's day
+    # Consider packets sent until midnight of the end date's day
     if end_date:
         end_date = datetime.combine(end_date, datetime.max.time())
 
@@ -128,38 +147,71 @@ def device_stats(request):
         else Q()
     )
 
-    # Query devices that sent packets in the specified timeframe
-    relevant_devices = Device.objects.filter(date_filter).distinct()
-
-    # Total devices within the date range
-    total_devices = relevant_devices.count()
-
-    # Devices that sent malicious packets in the specified timeframe
-    malicious_device_count = relevant_devices.filter(packets__malicious=True).count()
-
-    # Devices that sent only non-malicious packets in the specified timeframe
-    non_malicious_device_count = relevant_devices.exclude(
-        packets__malicious=True
-    ).count()
-
-    # Count malicious devices grouped by group name
-    malicious_by_group = (
-        Group.objects.filter(
-            scanners__packet__time_stamp__range=(start_date, end_date),
-            scanners__packet__malicious=True,
-        )
+    # Annotate each device with total packets and malicious packets in the date range
+    annotated_devices = (
+        Device.objects.filter(date_filter)
+        .distinct()
         .annotate(
-            malicious_device_count=Count("scanners__packet__device", distinct=True)
+            total_packets=Count("packets", filter=date_filter),
+            malicious_packets=Count(
+                "packets", filter=date_filter & Q(packets__malicious=True)
+            ),
         )
-        .values("name", "malicious_device_count")
     )
 
+    # Count total devices within the date range
+    total_devices = annotated_devices.count()
+
+    # Count devices where at least 60% of packets are malicious
+    # Change threshold value here
+    mal_percent = 0.6
+    malicious_device_count = 0
+    for annotated_device in annotated_devices:
+        if (
+            annotated_device.malicious_packets / annotated_device.total_packets  # pyright: ignore
+            >= mal_percent
+        ):
+            malicious_device_count += 1
+
+    # Calculate non-malicious devices as total minus malicious
+    non_malicious_device_count = total_devices - malicious_device_count
+
+    # Count malicious devices grouped by group name
+    # was too hard for me using django ORM
+    print(datetime.now())
+    groups = list(Group.objects.all())
+    groups_by_names: list[dict] = []
+    for group in groups:
+        device_to_total_count = defaultdict(int)
+        device_to_mal_count = defaultdict(int)
+        packets = (
+            Packet.objects.filter(time_stamp__range=(start_date, end_date))
+            .filter(scanner__group=group)
+            .prefetch_related("device")
+        )
+        for packet in packets.all():
+            if packet.device is None:
+                continue
+            device_to_total_count[packet.device.pk] += 1
+            if packet.malicious:
+                device_to_mal_count[packet.device.pk] += 1
+
+        mal_device_count = 0
+        for pk, total_count in device_to_total_count.items():
+            if device_to_mal_count[pk] / total_count >= mal_percent:
+                mal_device_count += 1
+        group_by_name = {
+            "name": group.name,
+            "malicious_device_count": mal_device_count,
+        }
+        groups_by_names.append(group_by_name)
     # Construct the response
+    print(datetime.now())
     data = {
         "total_devices": total_devices,
         "malicious_devices": malicious_device_count,
         "non_malicious_devices": non_malicious_device_count,
-        "malicious_by_group": list(malicious_by_group),
+        "malicious_by_group": groups_by_names,
     }
 
     return JsonResponse(data, safe=False)
@@ -175,7 +227,7 @@ def fetch_devices(request):
         Packet.objects.exclude(device_id__isnull=True)
         .values("device_id")
         .annotate(latest_timestamp=Max("time_stamp"))
-        .order_by('-latest_timestamp')  # Reversed to get the latest first
+        .order_by("-latest_timestamp")  # Reversed to get the latest first
     )
 
     # Get the details of each device along with its latest packet and related scanner and group
@@ -223,7 +275,6 @@ def fetch_devices(request):
     return JsonResponse(response_data, safe=False)
 
 
-
 def fetch_pkt_data(request, device_pk):
     # Get the page number from the request (default to 1 if not provided)
     page = int(request.GET.get("page", 1))
@@ -262,7 +313,6 @@ def fetch_pkt_data(request, device_pk):
     }
 
     return JsonResponse(data, safe=False)
-
 
 
 # render page views
@@ -405,3 +455,4 @@ def logout_user(request: HttpRequest) -> HttpResponse:
     messages.success(request, ("Signed out"))
     logout(request)
     return redirect("login")
+

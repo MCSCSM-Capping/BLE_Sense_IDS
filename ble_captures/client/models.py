@@ -73,7 +73,9 @@ class Packet(models.Model):
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="packets", null=True
     )
-    scanner = models.ForeignKey(Scanner, on_delete=models.CASCADE)
+    scanner = models.ForeignKey(
+        Scanner, related_name="packets", on_delete=models.CASCADE
+    )
 
 
 class Uuid(models.Model):
