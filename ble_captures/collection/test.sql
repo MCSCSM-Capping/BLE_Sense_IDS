@@ -12,3 +12,17 @@ WHERE device_id IN (
 SELECT MAX(client_packet.time_stamp) FROM client_packet WHERE client_packet.advertising_address like '209005070789164';
 SELECT MAX(client_packet.time_stamp) FROM client_packet WHERE client_packet.advertising_address like '129291415251651';
 SELECT * FROM client_device;
+
+SELECT DISTINCT "client_device"."id", COUNT("client_packet"."id")
+FILTER 
+    (WHERE "client_packet"."time_stamp" BETWEEN 2024-11-29 00:00:00 AND 2024-12-06 23:59:59.999999) AS "total_packets", 
+    COUNT("client_packet"."id") 
+    FILTER (WHERE ("client_packet"."time_stamp" BETWEEN 2024-11-29 00:00:00 AND 2024-12-06 23:59:59.999999 AND "client_packet"."malicious"))
+        AS "malicious_packets",
+    CASE WHEN COUNT("client_packet"."id")
+        FILTER (WHERE ("client_packet"."time_stamp" BETWEEN 2024-11-29 00:00:00 AND 2024-12-06 23:59:59.999999)) > 0
+        THEN ((COUNT("client_packet"."id") 
+                FILTER (WHERE ("client_packet"."time_stamp" BETWEEN 2024-11-29 00:00:00 AND 2024-12-06 23:59:59.999999 AND "client_packet"."malicious")) * 100.0) / COUNT("client_packet"."id") 
+            FILTER (WHERE "client_packet"."time_stamp" BETWEEN 2024-11-29 00:00:00 AND 2024-12-06 23:59:59.999999)) 
+        ELSE 0.0 END AS "malicious_percentage" FROM "client_device" LEFT OUTER JOIN "client_packet" ON ("client_device"."id" = "client_packet"."device_id") 
+            WHERE "client_packet"."time_stamp" BETWEEN 2024-11-29 00:00:00 AND 2024-12-06 23:59:59.999999 GROUP BY "client_device"."id"

@@ -87,9 +87,14 @@ def device_count(request):
     # Annotate devices with packet counts
     annotated_devices = Device.objects.filter(recent_packets_filter).annotate(
         total_packets=Count("packets", filter=recent_packets_filter),
-        malicious_packets=Count("packets", filter=recent_packets_filter & Q(packets__malicious=True)),
+        malicious_packets=Count(
+            "packets", filter=recent_packets_filter & Q(packets__malicious=True)
+        ),
         malicious_percentage=Case(
-            When(total_packets__gt=0, then=(F("malicious_packets") * 100.0) / F("total_packets")),
+            When(
+                total_packets__gt=0,
+                then=(F("malicious_packets") * 100.0) / F("total_packets"),
+            ),
             default=0.0,
             output_field=FloatField(),
         ),
@@ -100,7 +105,9 @@ def device_count(request):
 
     # Count malicious devices where 60% or more packets are malicious
     # change threshold value here
-    malicious_device_count = annotated_devices.filter(malicious_percentage__gte=60).count()
+    malicious_device_count = annotated_devices.filter(
+        malicious_percentage__gte=60
+    ).count()
 
     # Calculate non-malicious devices as total minus malicious
     non_malicious_device_count = all_device_count - malicious_device_count
@@ -113,7 +120,6 @@ def device_count(request):
             "malicious_devices": malicious_device_count,
         }
     )
-
 
 
 # for donut chart and table
@@ -146,14 +152,6 @@ def device_stats(request):
             malicious_packets=Count(
                 "packets", filter=date_filter & Q(packets__malicious=True)
             ),
-            malicious_percentage=Case(
-                When(
-                    total_packets__gt=0,
-                    then=(F("malicious_packets") * 100.0) / F("total_packets"),
-                ),
-                default=0.0,
-                output_field=FloatField(),
-            ),
         )
     )
 
@@ -162,9 +160,14 @@ def device_stats(request):
 
     # Count devices where at least 60% of packets are malicious
     # Change threshold value here
-    malicious_device_count = annotated_devices.filter(
-        malicious_percentage__gte=60
-    ).count()
+    malicious_threshold_percent = 0.6
+    malicious_device_count = 0
+    for annotated_device in annotated_devices:
+        if (
+            annotated_device.malicious_packets / annotated_device.total_packets  # pyright: ignore
+            >= malicious_threshold_percent
+        ):
+            malicious_device_count += 1
 
     # Calculate non-malicious devices as total minus malicious
     non_malicious_device_count = total_devices - malicious_device_count
