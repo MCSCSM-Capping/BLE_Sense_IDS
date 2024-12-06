@@ -20,6 +20,9 @@ from django.utils import timezone
 from django.utils.timezone import now
 from django.core.paginator import Paginator
 from django.db.models import Case, When, F, FloatField
+import yaml
+from django.conf import settings
+import os
 
 
 # queries from DB------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -430,3 +433,19 @@ def logout_user(request: HttpRequest) -> HttpResponse:
     messages.success(request, ("Signed out"))
     logout(request)
     return redirect("login")
+
+
+def load_company_map(yaml_filename) -> map:
+    with open(os.path.join(settings.BASE_DIR, "client", yaml_filename), 'r') as company_yaml:
+        company_data = yaml.safe_load(company_yaml)
+    return {
+        int(entry['value'], 16) if isinstance(entry['value'], str) else entry['value']: entry['name']
+        for entry in company_data['company_identifiers']
+    }
+
+
+def get_company_name_from_id(company_id: int) -> str:
+    return company_map.get(company_id, "Unknown")
+
+
+company_map = load_company_map("company_identifiers.yaml");
