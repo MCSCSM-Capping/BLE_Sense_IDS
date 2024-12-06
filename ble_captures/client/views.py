@@ -1,3 +1,4 @@
+from collections import defaultdict
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from client.models import *
@@ -87,9 +88,14 @@ def device_count(request):
     # Annotate devices with packet counts
     annotated_devices = Device.objects.filter(recent_packets_filter).annotate(
         total_packets=Count("packets", filter=recent_packets_filter),
-        malicious_packets=Count("packets", filter=recent_packets_filter & Q(packets__malicious=True)),
+        malicious_packets=Count(
+            "packets", filter=recent_packets_filter & Q(packets__malicious=True)
+        ),
         malicious_percentage=Case(
-            When(total_packets__gt=0, then=(F("malicious_packets") * 100.0) / F("total_packets")),
+            When(
+                total_packets__gt=0,
+                then=(F("malicious_packets") * 100.0) / F("total_packets"),
+            ),
             default=0.0,
             output_field=FloatField(),
         ),
@@ -100,7 +106,9 @@ def device_count(request):
 
     # Count malicious devices where 60% or more packets are malicious
     # change threshold value here
-    malicious_device_count = annotated_devices.filter(malicious_percentage__gte=60).count()
+    malicious_device_count = annotated_devices.filter(
+        malicious_percentage__gte=60
+    ).count()
 
     # Calculate non-malicious devices as total minus malicious
     non_malicious_device_count = all_device_count - malicious_device_count
@@ -113,7 +121,6 @@ def device_count(request):
             "malicious_devices": malicious_device_count,
         }
     )
-
 
 
 # for donut chart and table
@@ -149,7 +156,7 @@ def device_stats(request):
             malicious_percentage=Case(
                 When(
                     total_packets__gt=0,
-                    then=(F("malicious_packets") * 100.0) / F("total_packets"),
+                    then=F("malicious_packets") / F("total_packets"),
                 ),
                 default=0.0,
                 output_field=FloatField(),
@@ -162,31 +169,50 @@ def device_stats(request):
 
     # Count devices where at least 60% of packets are malicious
     # Change threshold value here
+    mal_percent = 0.6
     malicious_device_count = annotated_devices.filter(
-        malicious_percentage__gte=60
+        malicious_percentage__gte=mal_percent
     ).count()
 
     # Calculate non-malicious devices as total minus malicious
     non_malicious_device_count = total_devices - malicious_device_count
 
     # Count malicious devices grouped by group name
-    malicious_by_group = (
-        Group.objects.filter(
-            scanners__packet__time_stamp__range=(start_date, end_date),
-            scanners__packet__malicious=True,
+    # was too hard for me using django ORM
+    print(datetime.now())
+    groups = list(Group.objects.all())
+    groups_by_names: list[dict] = []
+    for group in groups:
+        device_to_total_count = defaultdict(int)
+        device_to_mal_count = defaultdict(int)
+        packets = (
+            Packet.objects.filter(time_stamp__range=(start_date, end_date))
+            .filter(scanner__group=group)
+            .prefetch_related("device")
         )
-        .annotate(
-            malicious_device_count=Count("scanners__packet__device", distinct=True)
-        )
-        .values("name", "malicious_device_count")
-    )
+        for packet in packets.all():
+            if packet.device is None:
+                continue
+            device_to_total_count[packet.device.pk] += 1
+            if packet.malicious:
+                device_to_mal_count[packet.device.pk] += 1
 
+        mal_device_count = 0
+        for pk, total_count in device_to_total_count.items():
+            if device_to_mal_count[pk] / total_count > mal_percent:
+                mal_device_count += 1
+        group_by_name = {
+            "name": group.name,
+            "malicious_device_count": mal_device_count,
+        }
+        groups_by_names.append(group_by_name)
     # Construct the response
+    print(datetime.now())
     data = {
         "total_devices": total_devices,
         "malicious_devices": malicious_device_count,
         "non_malicious_devices": non_malicious_device_count,
-        "malicious_by_group": list(malicious_by_group),
+        "malicious_by_group": groups_by_names,
     }
 
     return JsonResponse(data, safe=False)
