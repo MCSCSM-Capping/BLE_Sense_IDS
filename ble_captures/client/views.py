@@ -198,7 +198,7 @@ def device_stats(request):
 
         mal_device_count = 0
         for pk, total_count in device_to_total_count.items():
-            if device_to_mal_count[pk] / total_count > mal_percent:
+            if device_to_mal_count[pk] / total_count >= mal_percent:
                 mal_device_count += 1
         group_by_name = {
             "name": group.name,
