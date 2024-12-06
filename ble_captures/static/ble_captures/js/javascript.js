@@ -401,26 +401,6 @@ document.addEventListener('DOMContentLoaded', function () {
   let currentPage = 1; // Track the current page
   let totalPages = 0; // Track total pages
 
-  const packetsTable = document.getElementById('packetsTable');
-  // load company id map
-  fetch("/static/ble_captures/json/company_lookup.json")
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Failed to fetch company lookup JSON: ${response.statusText}`);
-        }
-        return response.json();
-    })
-    .then(companyJsonObject => {
-        // Convert JSON object map
-        const tempMap = new Map(Object.entries(companyJsonObject));
-        // Convert str keys to int
-        const companyMap = new Map(
-            Array.from(tempMap.entries()).map(([key, value]) => [parseInt(key, 10), value])
-        );
-    })
-    .catch(error => {
-        console.error("Error loading company lookup map:", error);
-    });
 
   // Function to fetch packets for a specific page
   function loadPacketData(page) {
@@ -436,82 +416,109 @@ document.addEventListener('DOMContentLoaded', function () {
         currentPage = data.pagination.current_page;
         totalPages = data.pagination.total_pages;
 
-        // Convert the time_stamp field for each packet
-        packets.forEach(packet => {
-          let utcDate = new Date(packet.time_stamp);
-          let options = {
-            timeZone: 'America/New_York',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-          };
-          let time = utcDate.toLocaleTimeString('en-US', options);
-          let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
-          packet.time_stamp = `${time} ${date}`;  // Time first, followed by the date
-
-          if (packet.rssi == 1) {
-            packet.rssi = "Unknown"
-          }
-          if (packet.channel_index == -1) {
-            packet.channel_index = "Unknown"
-          }
-          if (packet.advertising_address == -1) {
-            packet.advertising_address = "Unknown"
-          }
-          if (packet.power_level == -255) {
-            packet.power_level = "Unknown"
-          }
-          if (packet.counter == -1) {
-            packet.counter = "Unknown"
-          }
-          if (packet.protocol_version == -1) {
-            packet.protocol_version = "Unknown"
-          }
-        });
-
-        // Render the table with new data
-        if (window.hotDT) {
-          window.hotDT.loadData(packets);
-        } else {
-          window.hotDT = new Handsontable(packetsTable, {
-            data: packets,
-            columns: [
-              { title: 'Packet ID', type: 'numeric', data: 'pk' },
-              { title: 'Time Stamp', type: 'text', data: 'time_stamp' },
-              { title: 'Advertising Address', type: 'text', data: 'advertising_address' },
-              { title: 'Power Level', type: 'text', data: 'power_level' },
-              { title: 'Company ID', type: 'text', data: 'company_id' },
-              { title: 'rssi', type: 'text', data: 'rssi' },
-              { title: 'Channel Index', type: 'text', data: 'channel_index' },
-              { title: 'Counter', type: 'text', data: 'counter' },
-              { title: 'Protocol Version', type: 'text', data: 'protocol_version' },
-              { title: 'Malicious', type: 'text', data: 'malicious' }
-            ],
-            filters: true,
-            dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar',],
-            height: 'auto',
-            autoWrapRow: true,
-            autoWrapCol: true,
-            readOnly: true,
-            stretchH: 'all',
-            width: '100%',
-            licenseKey: 'non-commercial-and-evaluation',
-            afterFilter: function countRows() {
-              const rowCount = window.hotDT.countRows();
-              document.getElementById("packetRowDisplay").innerHTML = 'Rows Displayed: ' + rowCount;
+        const packetsTable = document.getElementById('packetsTable');
+        // load company id map
+        fetch("/static/ble_captures/json/company_lookup.json")
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to fetch company lookup JSON: ${response.statusText}`);
             }
+            return response.json();
+          })
+          .then(companyJsonObject => {
+            const companyMap = new Map(Object.entries(companyJsonObject));
+            console.log("this is a test map");
+            console.log(companyMap.get("0"))
+            // Convert the time_stamp field for each packet
+            packets.forEach(packet => {
+              let utcDate = new Date(packet.time_stamp);
+              let options = {
+                timeZone: 'America/New_York',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+              };
+              let time = utcDate.toLocaleTimeString('en-US', options);
+              let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+              packet.time_stamp = `${time} ${date}`;  // Time first, followed by the date
+
+              if (packet.rssi == 1) {
+                packet.rssi = "Unknown"
+              }
+              if (packet.channel_index == -1) {
+                packet.channel_index = "Unknown"
+              }
+              if (packet.advertising_address == -1) {
+                packet.advertising_address = "Unknown"
+              }
+              if (packet.power_level == -255) {
+                packet.power_level = "Unknown"
+              }
+              if (packet.counter == -1) {
+                packet.counter = "Unknown"
+              }
+              if (packet.protocol_version == -1) {
+                packet.protocol_version = "Unknown"
+              }
+              if (packet.company_id == -1) {
+                packet.company_name = "Unknown"
+              }
+              else {
+                packet.company_name = companyMap.get(packet.company_id)
+              }
+            });
+
+            // Render the table with new data
+            if (window.hotDT) {
+              window.hotDT.loadData(packets);
+            } else {
+              window.hotDT = new Handsontable(packetsTable, {
+                data: packets,
+                columns: [
+                  { title: 'Packet ID ', type: 'numeric', data: 'pk' },
+                  { title: 'Time Stamp ', type: 'text', data: 'time_stamp' },
+                  { title: 'Advertising Address ', type: 'text', data: 'advertising_address' },
+                  { title: 'Power Level ', type: 'text', data: 'power_level' },
+                  //{ title: 'Company ID', type: 'text', data: 'company_id' },
+                  { title: 'Company Name  ', type: 'text', data: 'company_name' },
+                  { title: 'rssi ', type: 'text', data: 'rssi' },
+                  { title: 'Channel Index ', type: 'text', data: 'channel_index' },
+                  { title: 'Counter ', type: 'text', data: 'counter' },
+                  { title: 'Protocol Version ', type: 'text', data: 'protocol_version' },
+                  { title: 'Malicious ', type: 'text', data: 'malicious' }
+                ],
+                filters: true,
+                dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar',],
+                height: 'auto',
+                autoWrapRow: true,
+                autoWrapCol: true,
+                readOnly: true,
+                stretchH: 'all',
+                width: '100%',
+                licenseKey: 'non-commercial-and-evaluation',
+                afterFilter: function countRows() {
+                  const rowCount = window.hotDT.countRows();
+                  document.getElementById("packetRowDisplay").innerHTML = 'Rows Displayed: ' + rowCount;
+                }
+              });
+            }
+
+            // Update the pagination buttons
+            renderPaginationControls();
+
+            // Update the row count display
+            countRows();
+          })
+          .catch(error => {
+            console.error('Error fetching packet data:', error);
           });
-        }
 
-        // Update the pagination buttons
-        renderPaginationControls();
 
-        // Update the row count display
-        countRows();
+
       })
       .catch(error => {
-        console.error('Error fetching packet data:', error);
+        console.error("Error loading company lookup map:", error);
       });
   }
 
@@ -564,6 +571,26 @@ document.addEventListener('DOMContentLoaded', function () {
   let currentPage = 1; // Track the current page
   const perPage = 500; // Number of rows per page
   let hotDT; // Reference to the Handsontable instance
+  let companyMap; // To store the company mapping
+
+  // Load company map once
+  fetch("/static/ble_captures/json/company_lookup.json")
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Failed to fetch company lookup JSON: ${response.statusText}`);
+      }
+      return response.json();
+    })
+    .then(companyJsonObject => {
+      companyMap = new Map(Object.entries(companyJsonObject));
+      console.log("Company map loaded successfully:", companyMap);
+
+      // Fetch and render devices after the map is ready
+      fetchAndRenderDevices(currentPage);
+    })
+    .catch(error => {
+      console.error("Error loading company lookup map:", error);
+    });
 
   // Function to fetch and update the table
   function fetchAndRenderDevices(page) {
@@ -581,6 +608,12 @@ document.addEventListener('DOMContentLoaded', function () {
           deviceObj.id = `${device.id}`;
           deviceObj.OUI = `${device.oui}`;
           deviceObj.comp_id = `${device.company_id}`;
+          if(`${device.company_id}` == "-1"){
+            deviceObj.comp_name = "Unknown"
+          }
+          else{
+            deviceObj.comp_name = companyMap.get(device.company_id)
+          }
           deviceObj.btn = `<a href="/packets/${device.id}"> View Packets </a>`;
 
           let utcDate = new Date(device.time_stamp);
@@ -597,15 +630,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
           deviceObj.scanner = `${device.scanner_name}`;
           deviceObj.group = `${device.group}`;
-          if (device.malicious == true) {
-            deviceObj.malicious = 'Malicious'
+
+          if (device.malicious === true) {
+            deviceObj.malicious = 'Malicious';
+          } else {
+            deviceObj.malicious = 'Non-Malicious';
           }
-          else (deviceObj.malicious = 'Non-Malicious')
           devices.push(deviceObj);
         });
 
         updateTable(); // Update the table with the new data
         renderPagination(data.total_pages, data.current_page); // Update pagination controls
+      })
+      .catch(error => {
+        console.error("Error fetching devices:", error);
       });
   }
 
@@ -624,7 +662,8 @@ document.addEventListener('DOMContentLoaded', function () {
           { title: 'ID', type: 'numeric', data: 'id' },
           { title: 'Malicious?', type: 'text', data: 'malicious' },
           { title: 'OUI', type: 'text', data: 'OUI' },
-          { title: 'Company ID', type: 'text', data: 'comp_id' },
+          //{ title: 'Company ID', type: 'text', data: 'comp_id' },
+          { title: 'Company Name', type: 'text', data: 'comp_name' },
           { title: 'Scanned by', type: 'text', data: 'scanner' },
           { title: 'Last seen at', type: 'text', data: 'group' },
           { title: 'Last detected at', type: 'text', data: 'time' },
@@ -676,13 +715,11 @@ document.addEventListener('DOMContentLoaded', function () {
     nextButton.onclick = () => fetchAndRenderDevices(currentPage + 1);
     paginationContainer.appendChild(nextButton);
   }
+
   function countRows() {
     const rowCount = hotDT.countRows();
-    document.getElementById("deviceRowDisplay").innerHTML = 'Rows Displayed: ' + rowCount;
+    document.getElementById("deviceRowDisplay").innerHTML = `Rows Displayed: ${rowCount}`;
   }
-
-  // Initial fetch and render
-  fetchAndRenderDevices(currentPage);
 });
 
 
@@ -843,4 +880,3 @@ document.getElementById("updateButton").addEventListener("click", fetchDataAndUp
 
 //end donut chart and vulnerable groups table
 //-----------------------------------------
-
