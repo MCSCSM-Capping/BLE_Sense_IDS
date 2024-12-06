@@ -402,6 +402,25 @@ document.addEventListener('DOMContentLoaded', function () {
   let totalPages = 0; // Track total pages
 
   const packetsTable = document.getElementById('packetsTable');
+  // load company id map
+  fetch("/static/ble_captures/json/company_lookup.json")
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Failed to fetch company lookup JSON: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(companyJsonObject => {
+        // Convert JSON object map
+        const tempMap = new Map(Object.entries(companyJsonObject));
+        // Convert str keys to int
+        const companyMap = new Map(
+            Array.from(tempMap.entries()).map(([key, value]) => [parseInt(key, 10), value])
+        );
+    })
+    .catch(error => {
+        console.error("Error loading company lookup map:", error);
+    });
 
   // Function to fetch packets for a specific page
   function loadPacketData(page) {

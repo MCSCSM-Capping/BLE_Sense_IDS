@@ -456,22 +456,3 @@ def logout_user(request: HttpRequest) -> HttpResponse:
     logout(request)
     return redirect("login")
 
-
-def load_company_map(yaml_filename: str) -> dict:
-    with open(
-        os.path.join(settings.BASE_DIR, "client", yaml_filename), "r"
-    ) as company_yaml:
-        company_data = yaml.safe_load(company_yaml)
-    return {
-        int(entry["value"], 16)
-        if isinstance(entry["value"], str)
-        else entry["value"]: entry["name"]
-        for entry in company_data["company_identifiers"]
-    }
-
-
-def get_company_name_from_id(company_id: int) -> str:
-    return company_map.get(company_id, "Unknown")
-
-
-company_map = load_company_map("company_identifiers.yaml")
