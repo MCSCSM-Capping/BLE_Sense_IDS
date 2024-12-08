@@ -1,3 +1,8 @@
+//allow HTML to be inserted as data into Handsontable table
+const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => {
+  td.innerHTML = value;
+};
+
 let companyMap;
 
 fetch("/static/ble_captures/json/company_lookup.json")
@@ -13,6 +18,7 @@ fetch("/static/ble_captures/json/company_lookup.json")
   .catch(error => {
     console.error("Error loading company lookup map:", error);
   });
+//------------------------------------------
 
 function timeConversion(ztime) {
   //zulu time conversion to EST
@@ -31,7 +37,7 @@ function timeConversion(ztime) {
 
   return formattedTimestamp;
 }
-
+//-----------------------------------------
 
 //alerts dashboard tool for sensor status
 document.addEventListener('DOMContentLoaded', function () {
@@ -75,12 +81,9 @@ document.addEventListener('DOMContentLoaded', function () {
   fetchSysStatus();
   setInterval(fetchSysStatus, 1000);
 });
-
-
-
+//-----------------------------------------
 
 //dashboard line graph device count by category
-//-----------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
   var chartDom = document.getElementById('deviceCount');
   var myChart = echarts.init(chartDom);
@@ -223,7 +226,6 @@ document.addEventListener('DOMContentLoaded', function () {
 //-----------------------------------------
 
 // Scanner System Metrics
-//-----------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
   var chartDom = document.getElementById('systemMetrics');
   var myChart = echarts.init(chartDom);
@@ -403,21 +405,9 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchSystemMetrics(scannerID);
   }, 1000); // Update every 10 seconds
 });
-
 //-----------------------------------------
-
-
-
-
-
-//allow HTML to be inserted as data in table
-const safeHtmlRenderer = (_instance, td, _row, _col, _prop, value) => {
-  td.innerHTML = value;
-};
-
 
 //packets table
-//-----------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
   const deviceElement = document.getElementById("device-data");
   const devicePk = deviceElement.getAttribute("data-device-pk");
@@ -562,11 +552,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // Initial load
   loadPacketData(currentPage);
 });
-
 //-----------------------------------------
 
 //all devices table
-//-----------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
   let devices = [];
   const endpoint = '/api/fetch-devices';
@@ -695,11 +683,9 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById("deviceRowDisplay").innerHTML = `Rows Displayed: ${rowCount}`;
   }
 });
-
-
+//-----------------------------------------
 
 //Donut chart and vulnerable devices table
-//-----------------------------------------
 let donutChart;
 let hotDT; // Store the Handsontable instance
 
@@ -783,6 +769,7 @@ function fetchDataAndUpdateChart() {
       console.error('Error fetching data:', error);
     });
 }
+//-----------------------------------------
 
 //date range quick select
 document.addEventListener('DOMContentLoaded', function () {
