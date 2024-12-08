@@ -1,3 +1,38 @@
+let companyMap;
+
+fetch("/static/ble_captures/json/company_lookup.json")
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`Failed to fetch company lookup JSON: ${response.statusText}`);
+    }
+    return response.json();
+  })
+  .then(companyJsonObject => {
+    companyMap = new Map(Object.entries(companyJsonObject));
+  })
+  .catch(error => {
+    console.error("Error loading company lookup map:", error);
+  });
+
+function timeConversion(ztime) {
+  //zulu time conversion to EST
+  //This can be udated to detetect client's local timezone
+  let utcDate = new Date(ztime);
+  let options = {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  };
+  let time = utcDate.toLocaleTimeString('en-US', options);
+  let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+  formattedTimestamp = `${time} ${date}`;  // Time first, followed by the date  
+
+  return formattedTimestamp;
+}
+
+
 //alerts dashboard tool for sensor status
 document.addEventListener('DOMContentLoaded', function () {
   function fetchSysStatus() {
@@ -19,27 +54,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const timestamp = new Date(item.latest_timestamp);
             const diffSeconds = (now - timestamp) / 1000; // Difference in seconds
 
-            //zulu time conversion
-            let utcDate = new Date(item.latest_timestamp);
-            let options = {
-              timeZone: 'America/New_York',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true
-            };
-            let time = utcDate.toLocaleTimeString('en-US', options);
-            let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
-            formattedTimestamp = `${time} ${date}`;  // Time first, followed by the date  
+            formattedTimestamp = timeConversion(item.latest_timestamp)
 
 
             if (diffSeconds > 60) {
-              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> " + item.name + " has been offline since " + formattedTimestamp + " </td>"
+              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-dash-circle-fill error-icon'></i> " +
+                item.name + " has been offline since " + formattedTimestamp + " </td>"
             } else if (item.latest_timestamp == null) {
-              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> " + item.name + " has not been set up </td>"
+              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-exclamation-diamond-fill warning-icon'></i> " +
+                item.name + " has not been set up </td>"
             }
             else {
-              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> " + item.name + " is online </td>"
+              document.getElementById("alert_" + item.id).innerHTML = "<td><i class='bi bi-check-circle-fill ok-icon'></i> " +
+                item.name + " is online </td>"
             }
           }
         });
@@ -418,108 +445,83 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const packetsTable = document.getElementById('packetsTable');
         // load company id map
-        fetch("/static/ble_captures/json/company_lookup.json")
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`Failed to fetch company lookup JSON: ${response.statusText}`);
+        // Convert the time_stamp field for each packet
+        packets.forEach(packet => {
+          packet.time_stamp = timeConversion(packet.time_stamp)
+
+          if (packet.rssi == 1) {
+            packet.rssi = "Unknown"
+          }
+          if (packet.channel_index == -1) {
+            packet.channel_index = "Unknown"
+          }
+          if (packet.advertising_address == -1) {
+            packet.advertising_address = "Unknown"
+          }
+          if (packet.power_level == -255) {
+            packet.power_level = "Unknown"
+          }
+          if (packet.counter == -1) {
+            packet.counter = "Unknown"
+          }
+          if (packet.protocol_version == -1) {
+            packet.protocol_version = "Unknown"
+          }
+          if (packet.company_id == -1) {
+            packet.company_name = "Unknown"
+          }
+          else {
+            packet.company_name = companyMap.get(packet.company_id)
+          }
+        });
+
+        // Render the table with new data
+        if (window.hotDT) {
+          window.hotDT.loadData(packets);
+        } else {
+          window.hotDT = new Handsontable(packetsTable, {
+            data: packets,
+            columns: [
+              { title: 'Packet ID ', type: 'numeric', data: 'pk' },
+              { title: 'Time Stamp ', type: 'text', data: 'time_stamp' },
+              { title: 'Advertising Address ', type: 'text', data: 'advertising_address' },
+              { title: 'Power Level ', type: 'text', data: 'power_level' },
+              //{ title: 'Company ID', type: 'text', data: 'company_id' },
+              { title: 'Company Name  ', type: 'text', data: 'company_name' },
+              { title: 'rssi ', type: 'text', data: 'rssi' },
+              { title: 'Channel Index ', type: 'text', data: 'channel_index' },
+              { title: 'Counter ', type: 'text', data: 'counter' },
+              { title: 'Protocol Version ', type: 'text', data: 'protocol_version' },
+              { title: 'Malicious ', type: 'text', data: 'malicious' }
+            ],
+            filters: true,
+            dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar',],
+            height: 'auto',
+            autoWrapRow: true,
+            autoWrapCol: true,
+            readOnly: true,
+            stretchH: 'all',
+            width: '100%',
+            licenseKey: 'non-commercial-and-evaluation',
+            afterFilter: function countRows() {
+              const rowCount = window.hotDT.countRows();
+              document.getElementById("packetRowDisplay").innerHTML = 'Rows Displayed: ' + rowCount;
             }
-            return response.json();
-          })
-          .then(companyJsonObject => {
-            const companyMap = new Map(Object.entries(companyJsonObject));
-            console.log("this is a test map");
-            console.log(companyMap.get("0"))
-            // Convert the time_stamp field for each packet
-            packets.forEach(packet => {
-              let utcDate = new Date(packet.time_stamp);
-              let options = {
-                timeZone: 'America/New_York',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true
-              };
-              let time = utcDate.toLocaleTimeString('en-US', options);
-              let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
-              packet.time_stamp = `${time} ${date}`;  // Time first, followed by the date
-
-              if (packet.rssi == 1) {
-                packet.rssi = "Unknown"
-              }
-              if (packet.channel_index == -1) {
-                packet.channel_index = "Unknown"
-              }
-              if (packet.advertising_address == -1) {
-                packet.advertising_address = "Unknown"
-              }
-              if (packet.power_level == -255) {
-                packet.power_level = "Unknown"
-              }
-              if (packet.counter == -1) {
-                packet.counter = "Unknown"
-              }
-              if (packet.protocol_version == -1) {
-                packet.protocol_version = "Unknown"
-              }
-              if (packet.company_id == -1) {
-                packet.company_name = "Unknown"
-              }
-              else {
-                packet.company_name = companyMap.get(packet.company_id)
-              }
-            });
-
-            // Render the table with new data
-            if (window.hotDT) {
-              window.hotDT.loadData(packets);
-            } else {
-              window.hotDT = new Handsontable(packetsTable, {
-                data: packets,
-                columns: [
-                  { title: 'Packet ID ', type: 'numeric', data: 'pk' },
-                  { title: 'Time Stamp ', type: 'text', data: 'time_stamp' },
-                  { title: 'Advertising Address ', type: 'text', data: 'advertising_address' },
-                  { title: 'Power Level ', type: 'text', data: 'power_level' },
-                  //{ title: 'Company ID', type: 'text', data: 'company_id' },
-                  { title: 'Company Name  ', type: 'text', data: 'company_name' },
-                  { title: 'rssi ', type: 'text', data: 'rssi' },
-                  { title: 'Channel Index ', type: 'text', data: 'channel_index' },
-                  { title: 'Counter ', type: 'text', data: 'counter' },
-                  { title: 'Protocol Version ', type: 'text', data: 'protocol_version' },
-                  { title: 'Malicious ', type: 'text', data: 'malicious' }
-                ],
-                filters: true,
-                dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar',],
-                height: 'auto',
-                autoWrapRow: true,
-                autoWrapCol: true,
-                readOnly: true,
-                stretchH: 'all',
-                width: '100%',
-                licenseKey: 'non-commercial-and-evaluation',
-                afterFilter: function countRows() {
-                  const rowCount = window.hotDT.countRows();
-                  document.getElementById("packetRowDisplay").innerHTML = 'Rows Displayed: ' + rowCount;
-                }
-              });
-            }
-
-            // Update the pagination buttons
-            renderPaginationControls();
-
-            // Update the row count display
-            countRows();
-          })
-          .catch(error => {
-            console.error('Error fetching packet data:', error);
           });
+        }
 
+        // Update the pagination buttons
+        renderPaginationControls();
 
-
+        // Update the row count display
+        countRows();
       })
       .catch(error => {
-        console.error("Error loading company lookup map:", error);
+        console.error('Error fetching packet data:', error);
       });
+
+
+
   }
 
   // Function to render pagination controls
@@ -571,26 +573,9 @@ document.addEventListener('DOMContentLoaded', function () {
   let currentPage = 1; // Track the current page
   const perPage = 500; // Number of rows per page
   let hotDT; // Reference to the Handsontable instance
-  let companyMap; // To store the company mapping
-
   // Load company map once
-  fetch("/static/ble_captures/json/company_lookup.json")
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`Failed to fetch company lookup JSON: ${response.statusText}`);
-      }
-      return response.json();
-    })
-    .then(companyJsonObject => {
-      companyMap = new Map(Object.entries(companyJsonObject));
-      console.log("Company map loaded successfully:", companyMap);
 
-      // Fetch and render devices after the map is ready
-      fetchAndRenderDevices(currentPage);
-    })
-    .catch(error => {
-      console.error("Error loading company lookup map:", error);
-    });
+  fetchAndRenderDevices(currentPage);
 
   // Function to fetch and update the table
   function fetchAndRenderDevices(page) {
@@ -608,26 +593,15 @@ document.addEventListener('DOMContentLoaded', function () {
           deviceObj.id = `${device.id}`;
           deviceObj.OUI = `${device.oui}`;
           deviceObj.comp_id = `${device.company_id}`;
-          if(`${device.company_id}` == "-1"){
+          if (`${device.company_id}` == "-1") {
             deviceObj.comp_name = "Unknown"
           }
-          else{
+          else {
             deviceObj.comp_name = companyMap.get(device.company_id)
           }
           deviceObj.btn = `<a href="/packets/${device.id}"> View Packets </a>`;
 
-          let utcDate = new Date(device.time_stamp);
-          let options = {
-            timeZone: 'America/New_York',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true,
-          };
-          let time = utcDate.toLocaleTimeString('en-US', options);
-          let date = utcDate.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
-          deviceObj.time = `${time} ${date}`;
-
+          deviceObj.time = timeConversion(device.time_stamp)
           deviceObj.scanner = `${device.scanner_name}`;
           deviceObj.group = `${device.group}`;
 
@@ -730,7 +704,6 @@ let donutChart;
 let hotDT; // Store the Handsontable instance
 
 function fetchDataAndUpdateChart() {
-  console.log(fetchDataAndUpdateChart);
   const startDate = document.getElementById("startDate").value;
   const endDate = document.getElementById("endDate").value;
 
@@ -743,8 +716,6 @@ function fetchDataAndUpdateChart() {
       return response.json();
     })
     .then(data => {
-
-      console.log(data);
       // Update donut chart
       if (donutChart) {
         donutChart.data.datasets[0].data = [
@@ -846,6 +817,12 @@ document.addEventListener('DOMContentLoaded', function () {
         startDate.setDate(today.getDate() - 7);
         startDate = startDate.toISOString().split('T')[0]; // 7 days ago
         break;
+
+      case 'today':
+        // Current day
+        startDate = today.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+        break;
     }
 
     // Set the date values in the inputs
@@ -854,6 +831,10 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Add event listeners for quick date buttons
+  document.getElementById('today').addEventListener('click', () => {
+    setDateRange('today');
+    fetchDataAndUpdateChart();
+  });
   document.getElementById('last7').addEventListener('click', () => {
     setDateRange('last7');
     fetchDataAndUpdateChart();
@@ -867,8 +848,8 @@ document.addEventListener('DOMContentLoaded', function () {
     setDateRange('ytd');
     fetchDataAndUpdateChart();
   });
-  //date range set to last 7 days to date on page load
-  document.addEventListener("DOMContentLoaded", setDateRange('last7'));
+  //date range set to today on page load
+  document.addEventListener("DOMContentLoaded", setDateRange('today'));
 });
 
 
