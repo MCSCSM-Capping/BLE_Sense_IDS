@@ -25,6 +25,7 @@ pycparser==2.22
 pyOpenSSL==24.2.1
 python-dateutil==2.9.0.post0
 pytz==2024.2
+PyYAML==6.0.2
 scikit-learn==1.5.2
 scipy==1.14.1
 service-identity==24.2.0
@@ -38,4 +39,3 @@ types-PyYAML==6.0.12.20240808
 typing_extensions==4.12.2
 tzdata==2024.2
 zope.interface==7.1.1
-PyYAML==6.0.2
