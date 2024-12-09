@@ -4,7 +4,6 @@ from django.shortcuts import redirect, render
 from client.models import *
 from collection.models import *
 from django.views import View
-from dataclasses import dataclass, asdict
 from django.http import JsonResponse
 from django.core.validators import EmailValidator
 from django.contrib.auth.password_validation import validate_password
@@ -15,15 +14,12 @@ from django.contrib.auth.models import User
 from django.core.serializers import serialize
 from django.db.models import Max
 import json
-from django.db.models import Count, Q, Exists, OuterRef
+from django.db.models import Count, Q
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.utils.timezone import now
 from django.core.paginator import Paginator
 from django.db.models import Case, When, F, FloatField
-import yaml
-from django.conf import settings
-import os
 
 
 # queries from DB------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -455,4 +451,3 @@ def logout_user(request: HttpRequest) -> HttpResponse:
     messages.success(request, ("Signed out"))
     logout(request)
     return redirect("login")
-
